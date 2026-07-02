@@ -1,0 +1,137 @@
+.inventory-page {
+  display: grid;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.inventory-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inventory-header .section-label {
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.inventory-layout {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.inventory-form,
+.inventory-list {
+  padding: 1.4rem;
+}
+
+.inventory-form .form-heading,
+.inventory-list .form-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.inventory-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.inventory-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.inventory-grid input,
+.inventory-grid select,
+.inventory-grid textarea {
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.85rem;
+  background: #fff;
+  font-size: 0.95rem;
+}
+
+.inventory-grid textarea {
+  resize: vertical;
+}
+
+.inventory-grid .full-width {
+  grid-column: 1 / -1;
+}
+
+.inventory-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.primary-button,
+.ghost-button,
+.table-button {
+  cursor: pointer;
+  border: none;
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+}
+
+.primary-button {
+  background: #1f2937;
+  color: #fff;
+}
+
+.primary-button.secondary {
+  background: #6b7280;
+}
+
+.ghost-button {
+  background: transparent;
+  color: #1f2937;
+}
+
+.inventory-table-wrap {
+  overflow-x: auto;
+}
+
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inventory-table th,
+.inventory-table td {
+  padding: 0.85rem 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.inventory-table th {
+  color: #374151;
+  font-weight: 700;
+}
+
+.inventory-table tbody tr:hover {
+  background: rgba(31, 41, 55, 0.04);
+}
+
+.appointment-alert {
+  padding: 0.9rem 1rem;
+  border-radius: 0.75rem;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.appointment-alert-error {
+  background: #fee2e2;
+  color: #991b1b;
+}

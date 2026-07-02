@@ -1,0 +1,159 @@
+.billing-page {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.billing-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.billing-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+}
+
+.billing-detail-card {
+  grid-column: span 2;
+}
+
+.form-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.billing-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.billing-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.billing-items {
+  display: grid;
+  gap: 1rem;
+}
+
+.billing-item-row {
+  display: grid;
+  grid-template-columns: 1.8fr 0.8fr 0.9fr 0.9fr 0.9fr auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.billing-item-row label,
+.billing-row label,
+.billing-summary label,
+.full-width {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.billing-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  align-items: center;
+}
+
+.billing-table-wrap {
+  overflow-x: auto;
+}
+
+.billing-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.billing-table th,
+.billing-table td {
+  padding: 0.85rem 0.9rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.billing-actions-cell {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.billing-detail {
+  display: grid;
+  gap: 1rem;
+}
+
+.billing-detail-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 0.75rem;
+}
+
+.billing-subsection {
+  display: grid;
+  gap: 1rem;
+  background: #f9fafb;
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+.primary-button,
+.secondary-button,
+.table-button {
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.primary-button {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.secondary-button,
+.table-button {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 0.75rem;
+  font-size: 0.95rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.appointment-alert,
+.appointment-alert-error {
+  padding: 1rem;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.appointment-alert {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.appointment-alert-error {
+  background: #fee2e2;
+  color: #991b1b;
+}

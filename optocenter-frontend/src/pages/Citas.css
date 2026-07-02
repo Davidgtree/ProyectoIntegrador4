@@ -1,0 +1,221 @@
+.appointments-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.appointments-header h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 1.6rem;
+  font-weight: 850;
+}
+
+.appointments-header p {
+  margin-top: 8px;
+  color: #64748b;
+}
+
+.appointments-layout {
+  display: grid;
+  grid-template-columns: minmax(330px, 0.68fr) minmax(0, 1.32fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.appointment-form,
+.appointments-list {
+  padding: 22px;
+}
+
+.appointment-alert {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 1px solid #bfead9;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.appointment-alert-error {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.appointment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.appointment-grid-full {
+  grid-column: 1 / -1;
+}
+
+.appointment-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.appointment-grid input,
+.appointment-grid select,
+.appointment-grid textarea,
+.appointments-search input {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  font-size: 0.92rem;
+  outline: none;
+}
+
+.appointment-grid textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.appointment-grid input:focus,
+.appointment-grid select:focus,
+.appointment-grid textarea:focus,
+.appointments-search input:focus {
+  border-color: #0d7287;
+  box-shadow: 0 0 0 3px rgba(13, 114, 135, 0.12);
+}
+
+.checkbox-field {
+  flex-direction: row !important;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #dbe7ed;
+  border-radius: 8px;
+  background: #f8fbfd;
+}
+
+.checkbox-field input {
+  width: auto;
+  min-height: auto;
+}
+
+.appointments-search {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.appointments-search button {
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: #0d7287;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.appointments-table-wrap {
+  overflow-x: auto;
+}
+
+.appointments-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+}
+
+.appointments-table th,
+.appointments-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid #e4edf3;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.appointments-table th {
+  color: #64748b;
+  background: #f8fbfd;
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.appointments-table td {
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.appointments-table td strong,
+.appointments-table td span {
+  display: block;
+}
+
+.appointments-table td strong {
+  color: #172033;
+}
+
+.appointments-table td span {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.appointment-status {
+  display: inline-flex !important;
+  margin: 0 !important;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #e8f6f8;
+  color: #0d6478 !important;
+  font-weight: 850;
+}
+
+.status-cancelada {
+  background: #fee2e2;
+  color: #b91c1c !important;
+}
+
+.status-reprogramada {
+  background: #fef3c7;
+  color: #92400e !important;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.danger-button {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.danger-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1120px) {
+  .appointments-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .appointment-grid,
+  .appointments-search {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,82 +1,61 @@
-// src/context/AuthContext.jsx (Actualizado para consumir la API)
+// src/context/AuthContext.jsx
 import { createContext, useContext, useState } from 'react';
 
 const AuthContext = createContext();
 
+const TOKEN_KEY = 'token';
+const USER_KEY = 'user';
+const API_URL = 'http://localhost:3000/api/auth';
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const stored = localStorage.getItem(USER_KEY);
+    return stored ? JSON.parse(stored) : null;
+  });
+  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
 
-  const login = async (usuario, password) => {
+  const guardarSesion = (data) => {
+    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(data.empleado));
+    setUser(data.empleado);
+    setToken(data.token);
+  };
+
+  const login = async (correo, password) => {
     try {
-      const response = await fetch('http://localhost:3000/api/auth/login', {
+      const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ usuario, password }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correo, password }),
       });
-
       const data = await response.json();
 
       if (response.ok) {
-        // Guardamos el token en localStorage para persistencia básica
-        localStorage.setItem('token', data.token);
-        setUser(data.user);
+        guardarSesion(data);
         return { success: true };
-      } else {
-        return { success: false, msg: data.msg || 'Error al iniciar sesión' };
       }
+      return { success: false, msg: data.message || 'Error al iniciar sesión' };
     } catch (error) {
       console.error('Error de conexión:', error);
       return { success: false, msg: 'No se pudo conectar con el servidor.' };
     }
   };
 
-  const register = async (nombre, usuario, password) => {
+  // datosEmpleado: { nombres, apellidos, numero_identidad, correo, telefono, password, rol_id }
+  const register = async (datosEmpleado) => {
     try {
-      const response = await fetch('http://localhost:3000/api/auth/register', {
+      const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ nombre, usuario, password }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datosEmpleado),
       });
-
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem('token', data.token);
-        setUser(data.user);
+        guardarSesion(data);
         return { success: true };
-      } else {
-        return { success: false, msg: data.msg || 'Error al registrar usuario' };
       }
-    } catch (error) {
-      console.error('Error de conexión:', error);
-      return { success: false, msg: 'No se pudo conectar con el servidor.' };
-    }
-  };
-
-
-  const paciente = async (nombre, apellido, fechaNacimiento, cedula, celular, direccion) => {
-    try {
-      const response = await fetch('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ nombre, apellido, fechaNacimiento, cedula, celular, direccion }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        localStorage.setItem('token', data.token);
-        setUser(data.user);
-        return { success: true };
-      } else {
-        return { success: false, msg: data.msg || 'Error al registrar paciente' };
-      }
+      return { success: false, msg: data.message || 'Error al registrar' };
     } catch (error) {
       console.error('Error de conexión:', error);
       return { success: false, msg: 'No se pudo conectar con el servidor.' };
@@ -84,12 +63,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     setUser(null);
+    setToken(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
