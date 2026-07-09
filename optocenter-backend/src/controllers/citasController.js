@@ -40,6 +40,68 @@ function validarCita(data) {
     return null;
 }
 
+function getAppointmentAccessPolicy(rolId) {
+    const numericRoleId = Number(rolId);
+
+    if (numericRoleId === 1) {
+        return {
+            canViewAllAppointments: true,
+            canCreateEditAppointment: true,
+            canCancelAppointment: true,
+            canConfirmPayment: true,
+            canManageClinicalConsults: false,
+            canViewOwnOnly: false,
+        };
+    }
+
+    if (numericRoleId === 4) {
+        return {
+            canViewAllAppointments: true,
+            canCreateEditAppointment: true,
+            canCancelAppointment: true,
+            canConfirmPayment: false,
+            canManageClinicalConsults: false,
+            canViewOwnOnly: false,
+        };
+    }
+
+    if (numericRoleId === 2) {
+        return {
+            canViewAllAppointments: false,
+            canCreateEditAppointment: false,
+            canCancelAppointment: false,
+            canConfirmPayment: false,
+            canManageClinicalConsults: true,
+            canViewOwnOnly: true,
+        };
+    }
+
+    return {
+        canViewAllAppointments: false,
+        canCreateEditAppointment: false,
+        canCancelAppointment: false,
+        canConfirmPayment: false,
+        canManageClinicalConsults: false,
+        canViewOwnOnly: false,
+    };
+}
+
+function construirFiltroCitas(req, request) {
+    const rolId = Number(req.user?.rol_id);
+
+    if (rolId === 2) {
+        const empleadoId = Number(req.user?.empleado_id);
+        request.input('empleado_id', sql.Int, empleadoId || 0);
+        return 'AND c.optometra_id = @empleado_id';
+    }
+
+    return '';
+}
+
+function estadoCitaPermiteEdicion(estado) {
+    return ['Agendada', 'Reprogramada'].includes(String(estado || '').trim());
+}
+
 async function listarCitas(req, res) {
     const { fecha = '', buscar = '' } = req.query;
     const termino = `%${buscar.trim()}%`;
@@ -49,6 +111,7 @@ async function listarCitas(req, res) {
         const request = pool.request()
             .input('buscar', sql.VarChar(160), termino)
             .input('fecha', sql.Date, fecha || null);
+        const filtroRol = construirFiltroCitas(req, request);
 
         const result = await request.query(`SELECT TOP (150)
                         c.cita_id, c.paciente_id, c.optometra_id, c.estado,
@@ -69,6 +132,7 @@ async function listarCitas(req, res) {
                            OR e.nombres LIKE @buscar
                            OR e.apellidos LIKE @buscar
                            OR c.estado LIKE @buscar)
+                      ${filtroRol}
                     ORDER BY c.fecha_hora_inicio DESC`);
 
         return res.json(result.recordset);
@@ -81,6 +145,8 @@ async function listarCitas(req, res) {
 async function obtenerOpciones(req, res) {
     try {
         const pool = await getPool();
+        const policy = getAppointmentAccessPolicy(req.user?.rol_id);
+
         const [pacientes, optometras] = await Promise.all([
             pool.request().query(`SELECT TOP (200) paciente_id, numero_identidad, nombres, apellidos
                                   FROM Pacientes
@@ -91,9 +157,13 @@ async function obtenerOpciones(req, res) {
                                   ORDER BY nombres, apellidos`),
         ]);
 
+        const optometrasFiltradas = policy.canViewOwnOnly
+            ? optometras.recordset.filter((optometra) => Number(optometra.empleado_id) === Number(req.user?.empleado_id))
+            : optometras.recordset;
+
         return res.json({
             pacientes: pacientes.recordset,
-            optometras: optometras.recordset,
+            optometras: optometrasFiltradas,
         });
     } catch (err) {
         console.error('Error consultando opciones de citas:', err);
@@ -118,6 +188,16 @@ async function crearCita(req, res) {
 
     try {
         const pool = await getPool();
+        const policy = getAppointmentAccessPolicy(req.user?.rol_id);
+
+        if (!policy.canCreateEditAppointment) {
+            return res.status(403).json({ message: 'No tienes permisos para agendar citas' });
+        }
+
+        if (Number(req.user?.rol_id) === 2 && Number(optometra_id) !== Number(req.user?.empleado_id)) {
+            return res.status(403).json({ message: 'Solo puedes crear citas para ti mismo' });
+        }
+
         const result = await pool.request()
             .input('paciente_id', sql.Int, Number(paciente_id))
             .input('optometra_id', sql.Int, Number(optometra_id))
@@ -200,6 +280,32 @@ async function actualizarCita(req, res) {
 
     try {
         const pool = await getPool();
+        const policy = getAppointmentAccessPolicy(req.user?.rol_id);
+
+        if (!policy.canCreateEditAppointment) {
+            return res.status(403).json({ message: 'No tienes permisos para modificar citas' });
+        }
+
+        const citaActual = await pool.request()
+            .input('id', sql.Int, id)
+            .query('SELECT optometra_id, estado FROM Citas WHERE cita_id = @id');
+
+        if (citaActual.recordset.length === 0) {
+            return res.status(404).json({ message: 'Cita no encontrada' });
+        }
+
+        if (Number(req.user?.rol_id) === 2) {
+            if (Number(citaActual.recordset[0].optometra_id) !== Number(req.user?.empleado_id)) {
+                return res.status(403).json({ message: 'No tienes permisos para modificar esta cita' });
+            }
+
+            if (!estadoCitaPermiteEdicion(citaActual.recordset[0].estado)) {
+                return res.status(403).json({ message: 'Solo puedes editar citas pendientes de atención' });
+            }
+        } else if (!estadoCitaPermiteEdicion(citaActual.recordset[0].estado)) {
+            return res.status(403).json({ message: 'Solo puedes editar citas pendientes de atención' });
+        }
+
         const result = await pool.request()
             .input('id', sql.Int, id)
             .input('paciente_id', sql.Int, Number(paciente_id))
@@ -243,6 +349,24 @@ async function cancelarCita(req, res) {
 
     try {
         const pool = await getPool();
+        const policy = getAppointmentAccessPolicy(req.user?.rol_id);
+
+        if (!policy.canCancelAppointment) {
+            return res.status(403).json({ message: 'No tienes permisos para cancelar citas' });
+        }
+
+        const citaActual = await pool.request()
+            .input('id', sql.Int, id)
+            .query('SELECT optometra_id, estado FROM Citas WHERE cita_id = @id');
+
+        if (citaActual.recordset.length === 0) {
+            return res.status(404).json({ message: 'Cita no encontrada' });
+        }
+
+        if (!estadoCitaPermiteEdicion(citaActual.recordset[0].estado) && String(citaActual.recordset[0].estado || '').trim() !== 'Agendada') {
+            return res.status(403).json({ message: 'No puedes cancelar una cita ya atendida o cancelada' });
+        }
+
         const result = await pool.request()
             .input('id', sql.Int, id)
             .input('notas_cancelacion', sql.VarChar(500), notas_cancelacion || null)
@@ -275,6 +399,12 @@ async function verificarPagoCita(req, res) {
 
     try {
         const pool = await getPool();
+        const policy = getAppointmentAccessPolicy(req.user?.rol_id);
+
+        if (!policy.canConfirmPayment) {
+            return res.status(403).json({ message: 'No tienes permisos para confirmar pagos' });
+        }
+
         const citaResult = await pool.request()
             .input('id', sql.Int, id)
             .query('SELECT requiere_pago_previo, pago_verificado FROM Citas WHERE cita_id = @id');

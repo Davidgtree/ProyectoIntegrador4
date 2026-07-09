@@ -1,12 +1,14 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { sql, getPool } = require('../config/db');
+const { verificarToken } = require('../middleware/authMiddleware');
+const { sendMail } = require('../utils/mailer');
 
 const MAX_INTENTOS_FALLIDOS = 3;
 
 // Roles que se pueden auto-registrar desde el login.
 // El Administrador (rol_id = 1) NUNCA se crea por autoregistro público.
-const ROLES_PERMITIDOS_AUTOREGISTRO = [2, 3, 4]; // Optómetra, Cajero, Vendedor
+const ROLES_PERMITIDOS_AUTOREGISTRO = [2, 3, 4]; // Optómetra, Cajero, Recepcion
 
 async function registrarAuditoria(pool, { empleado_id, modulo, accion, detalle, ip }) {
     try {
@@ -119,6 +121,434 @@ async function login(req, res) {
     }
 }
 
+async function listarUsuarios(req, res) {
+    if (Number(req.user?.rol_id) !== 1) {
+        return res.status(403).json({ message: 'Solo el administrador puede ver usuarios' });
+    }
+
+    try {
+        const pool = await getPool();
+        const result = await pool.request().query(`SELECT empleado_id, rol_id, nombres, apellidos, correo, telefono,
+                                                        activo, bloqueado, ultimo_acceso, creado_en
+                                                 FROM Empleados
+                                                 WHERE rol_id <> 1
+                                                 ORDER BY activo DESC, nombres, apellidos`);
+
+        return res.json(result.recordset);
+    } catch (err) {
+        console.error('Error listando usuarios:', err);
+        return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+}
+
+async function cambiarEstadoUsuario(req, res) {
+    if (Number(req.user?.rol_id) !== 1) {
+        return res.status(403).json({ message: 'Solo el administrador puede modificar usuarios' });
+    }
+
+    const id = Number(req.params.id);
+    const { activo } = req.body;
+
+    if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ message: 'ID de usuario inválido' });
+    }
+
+    try {
+        const pool = await getPool();
+        const empleadoActual = await pool.request()
+            .input('id', sql.Int, id)
+            .query('SELECT rol_id FROM Empleados WHERE empleado_id = @id');
+
+        if (empleadoActual.recordset.length === 0) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        if (Number(empleadoActual.recordset[0].rol_id) === 1) {
+            return res.status(403).json({ message: 'No se puede modificar al administrador principal' });
+        }
+
+        const result = await pool.request()
+            .input('id', sql.Int, id)
+            .input('activo', sql.Bit, Boolean(activo))
+            .query(`UPDATE Empleados
+                    SET activo = @activo, actualizado_en = SYSUTCDATETIME()
+                    WHERE empleado_id = @id`);
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        await registrarAuditoria(pool, {
+            empleado_id: req.user?.empleado_id,
+            modulo: 'Auth',
+            accion: Boolean(activo) ? 'Activar usuario' : 'Inactivar usuario',
+            detalle: `Empleado ${id}`,
+            ip: req.ip,
+        });
+
+        return res.json({ message: Boolean(activo) ? 'Usuario activado correctamente' : 'Usuario inactivado correctamente' });
+    } catch (err) {
+        console.error('Error cambiando estado del usuario:', err);
+        return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+}
+
+async function actualizarUsuario(req, res) {
+    if (Number(req.user?.rol_id) !== 1) {
+        return res.status(403).json({ message: 'Solo el administrador puede modificar usuarios' });
+    }
+
+    const id = Number(req.params.id);
+    const { nombres, apellidos, numero_identidad, correo, telefono, rol_id } = req.body;
+
+    if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ message: 'ID de usuario inválido' });
+    }
+
+    if (!nombres || !apellidos || !numero_identidad || !correo || !rol_id) {
+        return res.status(400).json({ message: 'Todos los campos son requeridos' });
+    }
+
+    const rolNumerico = Number(rol_id);
+    if (!ROLES_PERMITIDOS_AUTOREGISTRO.includes(rolNumerico)) {
+        return res.status(400).json({ message: 'El rol seleccionado no es válido' });
+    }
+
+    try {
+        const pool = await getPool();
+        const empleadoActual = await pool.request()
+            .input('id', sql.Int, id)
+            .query('SELECT rol_id FROM Empleados WHERE empleado_id = @id');
+
+        if (empleadoActual.recordset.length === 0) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        if (Number(empleadoActual.recordset[0].rol_id) === 1) {
+            return res.status(403).json({ message: 'No se puede modificar al administrador principal' });
+        }
+
+        const existing = await pool.request()
+            .input('id', sql.Int, id)
+            .input('correo', sql.VarChar(150), correo)
+            .input('numero_identidad', sql.VarChar(20), numero_identidad)
+            .query(`SELECT empleado_id FROM Empleados WHERE (correo = @correo OR numero_identidad = @numero_identidad) AND empleado_id <> @id`);
+
+        if (existing.recordset.length > 0) {
+            return res.status(409).json({ message: 'Correo o número de identidad ya está en uso por otro usuario' });
+        }
+
+        const result = await pool.request()
+            .input('id', sql.Int, id)
+            .input('rol_id', sql.Int, rolNumerico)
+            .input('nombres', sql.VarChar(120), nombres)
+            .input('apellidos', sql.VarChar(120), apellidos)
+            .input('numero_identidad', sql.VarChar(20), numero_identidad)
+            .input('correo', sql.VarChar(150), correo)
+            .input('telefono', sql.VarChar(30), telefono || null)
+            .query(`UPDATE Empleados
+                    SET rol_id = @rol_id,
+                        nombres = @nombres,
+                        apellidos = @apellidos,
+                        numero_identidad = @numero_identidad,
+                        correo = @correo,
+                        telefono = @telefono,
+                        actualizado_en = SYSUTCDATETIME()
+                    WHERE empleado_id = @id`);
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        await registrarAuditoria(pool, {
+            empleado_id: req.user?.empleado_id,
+            modulo: 'Auth',
+            accion: 'Actualizar usuario',
+            detalle: `Empleado ${id}`,
+            ip: req.ip,
+        });
+
+        return res.json({ message: 'Usuario actualizado correctamente' });
+    } catch (err) {
+        console.error('Error actualizando usuario:', err);
+        return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+}
+
+async function desbloquearUsuario(req, res) {
+    if (Number(req.user?.rol_id) !== 1) {
+        return res.status(403).json({ message: 'Solo el administrador puede desbloquear usuarios' });
+    }
+
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ message: 'ID de usuario inválido' });
+    }
+
+    try {
+        const pool = await getPool();
+        const empleadoActual = await pool.request()
+            .input('id', sql.Int, id)
+            .query('SELECT rol_id, bloqueado FROM Empleados WHERE empleado_id = @id');
+
+        if (empleadoActual.recordset.length === 0) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        if (Number(empleadoActual.recordset[0].rol_id) === 1) {
+            return res.status(403).json({ message: 'No se puede modificar al administrador principal' });
+        }
+
+        if (!empleadoActual.recordset[0].bloqueado) {
+            return res.status(400).json({ message: 'El usuario no está bloqueado' });
+        }
+
+        const result = await pool.request()
+            .input('id', sql.Int, id)
+            .input('bloqueado', sql.Bit, 0)
+            .input('intentos', sql.TinyInt, 0)
+            .query(`UPDATE Empleados
+                    SET bloqueado = @bloqueado, intentos_fallidos = @intentos, actualizado_en = SYSUTCDATETIME()
+                    WHERE empleado_id = @id`);
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        await registrarAuditoria(pool, {
+            empleado_id: req.user?.empleado_id,
+            modulo: 'Auth',
+            accion: 'Desbloquear usuario',
+            detalle: `Empleado ${id}`,
+            ip: req.ip,
+        });
+
+        return res.json({ message: 'Usuario desbloqueado correctamente' });
+    } catch (err) {
+        console.error('Error desbloqueando usuario:', err);
+        return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+}
+
+async function crearUsuario(req, res) {
+    if (Number(req.user?.rol_id) !== 1) {
+        return res.status(403).json({ message: 'Solo el administrador puede crear usuarios' });
+    }
+
+    const { nombres, apellidos, numero_identidad, correo, telefono, password, rol_id } = req.body;
+
+    if (!nombres || !apellidos || !numero_identidad || !correo || !password || !rol_id) {
+        return res.status(400).json({ message: 'Todos los campos son requeridos' });
+    }
+
+    const rolNumerico = Number(rol_id);
+    if (!ROLES_PERMITIDOS_AUTOREGISTRO.includes(rolNumerico)) {
+        return res.status(400).json({ message: 'El rol seleccionado no es válido para creación de personal' });
+    }
+
+    try {
+        const pool = await getPool();
+        const existing = await pool.request()
+            .input('correo', sql.VarChar(150), correo)
+            .input('numero_identidad', sql.VarChar(20), numero_identidad)
+            .query(`SELECT empleado_id FROM Empleados WHERE correo = @correo OR numero_identidad = @numero_identidad`);
+
+        if (existing.recordset.length > 0) {
+            return res.status(409).json({ message: 'Correo o número de identidad ya registrado' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const password_hash = await bcrypt.hash(password, salt);
+
+        await pool.request()
+            .input('rol_id', sql.Int, rolNumerico)
+            .input('nombres', sql.VarChar(120), nombres)
+            .input('apellidos', sql.VarChar(120), apellidos)
+            .input('numero_identidad', sql.VarChar(20), numero_identidad)
+            .input('correo', sql.VarChar(150), correo)
+            .input('telefono', sql.VarChar(30), telefono || null)
+            .input('password_hash', sql.VarChar(255), password_hash)
+            .input('sal', sql.VarChar(255), salt)
+            .input('activo', sql.Bit, 1)
+            .input('bloqueado', sql.Bit, 0)
+            .input('intentos_fallidos', sql.TinyInt, 0)
+            .query(`INSERT INTO Empleados (rol_id, nombres, apellidos, numero_identidad, correo, telefono, password_hash, sal, activo, bloqueado, intentos_fallidos, creado_en, actualizado_en)
+                    VALUES (@rol_id, @nombres, @apellidos, @numero_identidad, @correo, @telefono, @password_hash, @sal, @activo, @bloqueado, @intentos_fallidos, SYSUTCDATETIME(), SYSUTCDATETIME())`);
+
+        await registrarAuditoria(pool, {
+            empleado_id: req.user?.empleado_id,
+            modulo: 'Auth',
+            accion: 'Crear usuario',
+            detalle: `Empleado ${correo}`,
+            ip: req.ip,
+        });
+
+        return res.status(201).json({ message: 'Usuario creado correctamente' });
+    } catch (err) {
+        console.error('Error creando usuario:', err);
+        return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+}
+
+async function recuperarPassword(req, res) {
+    const { correo } = req.body;
+
+    if (!correo) {
+        return res.status(400).json({ message: 'El correo es requerido' });
+    }
+
+    try {
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('correo', sql.VarChar(150), correo)
+            .query(`SELECT empleado_id, nombres, apellidos, correo, activo
+                    FROM Empleados
+                    WHERE correo = @correo`);
+
+        const empleado = result.recordset[0];
+
+        if (empleado && empleado.activo) {
+            const resetToken = jwt.sign(
+                { empleado_id: empleado.empleado_id, prop: 'password-reset' },
+                process.env.JWT_SECRET,
+                { expiresIn: '1h' }
+            );
+            const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+            await pool.request()
+                .input('id', sql.Int, empleado.empleado_id)
+                .input('token', sql.NVarChar(255), resetToken)
+                .input('expira', sql.DateTime2, expiresAt)
+                .query(`UPDATE Empleados
+                        SET token_recuperacion = @token,
+                            token_expira_en = @expira,
+                            actualizado_en = SYSUTCDATETIME()
+                        WHERE empleado_id = @id`);
+
+            const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/restablecer-password?token=${resetToken}`;
+            const emailBody = `Hola ${empleado.nombres} ${empleado.apellidos},\n\nSolicitaste recuperar tu contraseña en OptoCenter.\nUsa este enlace para crear una nueva contraseña:\n${resetLink}\n\nEl enlace vence en 1 hora.`;
+
+            try {
+                if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+                    await sendMail({
+                        from: process.env.EMAIL_FROM || 'no-reply@optocenter.com',
+                        to: empleado.correo,
+                        subject: 'Recuperación de contraseña - OptoCenter',
+                        text: emailBody,
+                        html: `<p>Hola ${empleado.nombres} ${empleado.apellidos},</p><p>Solicitaste recuperar tu contraseña en OptoCenter.</p><p><a href="${resetLink}">Restablecer contraseña</a></p><p>El enlace vence en 1 hora.</p>`,
+                    });
+                }
+            } catch (mailError) {
+                console.error('Error enviando correo de recuperación:', mailError);
+            }
+        }
+
+        return res.json({
+            message: 'Si el correo está registrado y activo, recibirás instrucciones para recuperar tu contraseña.',
+        });
+    } catch (err) {
+        console.error('Error en recuperación de contraseña:', err);
+        return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+}
+
+async function validarTokenRecuperacion(req, res) {
+    const { token } = req.body;
+
+    if (!token) {
+        return res.status(400).json({ message: 'Token requerido' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('id', sql.Int, decoded.empleado_id)
+            .input('token', sql.NVarChar(255), token)
+            .query(`SELECT empleado_id, token_recuperacion, token_expira_en
+                FROM Empleados
+                WHERE empleado_id = @id`);
+
+        const empleado = result.recordset[0];
+
+        if (!empleado) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        const expirado = !empleado.token_expira_en || new Date(empleado.token_expira_en) < new Date();
+        const tokenValido = empleado.token_recuperacion === token && !expirado;
+
+        if (!tokenValido) {
+            return res.status(401).json({ message: 'El token de recuperación ha expirado o es inválido' });
+        }
+
+        return res.json({ message: 'Token válido', empleado_id: empleado.empleado_id });
+    } catch (err) {
+        console.error('Error validando token:', err);
+        return res.status(401).json({ message: 'Token inválido o expirado' });
+    }
+}
+
+async function restablecerPassword(req, res) {
+    const { token, nuevaPassword } = req.body;
+
+    if (!token || !nuevaPassword) {
+        return res.status(400).json({ message: 'Token y nueva contraseña son requeridos' });
+    }
+
+    if (String(nuevaPassword).length < 6) {
+        return res.status(400).json({ message: 'La nueva contraseña debe tener al menos 6 caracteres' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('id', sql.Int, decoded.empleado_id)
+            .input('token', sql.NVarChar(255), token)
+            .query(`SELECT empleado_id, token_recuperacion, token_expira_en
+                FROM Empleados
+                WHERE empleado_id = @id`);
+
+        const empleado = result.recordset[0];
+
+        if (!empleado) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        const expirado = !empleado.token_expira_en || new Date(empleado.token_expira_en) < new Date();
+        const tokenValido = empleado.token_recuperacion === token && !expirado;
+
+        if (!tokenValido) {
+            return res.status(401).json({ message: 'El token de recuperación ha expirado o es inválido' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const password_hash = await bcrypt.hash(nuevaPassword, salt);
+
+        await pool.request()
+            .input('id', sql.Int, empleado.empleado_id)
+            .input('password_hash', sql.VarChar(255), password_hash)
+            .input('salt', sql.VarChar(255), salt)
+            .input('token', sql.NVarChar(255), null)
+            .input('expira', sql.DateTime2, null)
+            .query(`UPDATE Empleados
+                    SET password_hash = @password_hash,
+                        sal = @salt,
+                        token_recuperacion = @token,
+                        token_expira_en = @expira,
+                        intentos_fallidos = 0,
+                        bloqueado = 0,
+                        actualizado_en = SYSUTCDATETIME()
+                    WHERE empleado_id = @id`);
+
+        return res.json({ message: 'Contraseña actualizada correctamente' });
+    } catch (err) {
+        console.error('Error restableciendo contraseña:', err);
+        return res.status(401).json({ message: 'Token inválido o expirado' });
+    }
+}
+
 async function register(req, res) {
     const { nombres, apellidos, numero_identidad, correo, telefono, password, rol_id } = req.body;
     const ip = req.ip;
@@ -185,4 +615,4 @@ async function register(req, res) {
     }
 }
 
-module.exports = { login, register };
+module.exports = { login, register, recuperarPassword, validarTokenRecuperacion, restablecerPassword, listarUsuarios, crearUsuario, cambiarEstadoUsuario, desbloquearUsuario, actualizarUsuario, verificarToken };

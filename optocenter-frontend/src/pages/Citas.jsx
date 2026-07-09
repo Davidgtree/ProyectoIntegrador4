@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getAppointmentAccessPolicy } from '../utils/permissions';
 import './Citas.css';
 
 const API_URL = 'http://localhost:3000/api/citas';
@@ -32,6 +34,7 @@ const formatDateTime = (value) =>
     : '-';
 
 export const Citas = () => {
+  const { user } = useAuth();
   const [citas, setCitas] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [optometras, setOptometras] = useState([]);
@@ -45,6 +48,7 @@ export const Citas = () => {
   const [verificandoPago, setVerificandoPago] = useState(false);
 
   const editando = useMemo(() => Boolean(form.cita_id), [form.cita_id]);
+  const policy = useMemo(() => getAppointmentAccessPolicy(user?.rol_id), [user?.rol_id]);
   const getToken = () => localStorage.getItem('token');
 
   const headers = {
@@ -108,6 +112,12 @@ export const Citas = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!policy.canCreateEditAppointment) {
+      setError('Tu rol no permite agendar ni reprogramar citas.');
+      return;
+    }
+
     setGuardando(true);
     setMensaje('');
     setError('');
@@ -135,6 +145,17 @@ export const Citas = () => {
   };
 
   const editarCita = (cita) => {
+    if (!policy.canCreateEditAppointment) {
+      setError('Tu rol no permite editar citas.');
+      return;
+    }
+
+    const estado = String(cita.estado || '').toLowerCase();
+    if (!['agendada', 'reprogramada'].includes(estado)) {
+      setError('Solo puedes editar citas pendientes de atención.');
+      return;
+    }
+
     setMensaje('');
     setError('');
     setForm({
@@ -149,6 +170,17 @@ export const Citas = () => {
   };
 
   const cancelarCita = async (cita) => {
+    if (!policy.canCancelAppointment) {
+      setError('Tu rol no permite cancelar citas.');
+      return;
+    }
+
+    const estado = String(cita.estado || '').toLowerCase();
+    if (['cancelada', 'atendida'].includes(estado)) {
+      setError('No se puede cancelar una cita ya atendida o cancelada.');
+      return;
+    }
+
     const confirmar = window.confirm(`Deseas cancelar la cita de ${cita.paciente_nombre}?`);
     if (!confirmar) return;
 
@@ -175,6 +207,11 @@ export const Citas = () => {
   };
 
   const verificarPagoCita = async (cita) => {
+    if (!policy.canConfirmPayment) {
+      setError('Tu rol no permite confirmar pagos manualmente.');
+      return;
+    }
+
     const confirmar = window.confirm(`Deseas marcar como pagada la cita de ${cita.paciente_nombre}?`);
     if (!confirmar) return;
 
@@ -212,7 +249,7 @@ export const Citas = () => {
         <form className="appointment-form dashboard-card" onSubmit={handleSubmit}>
           <div className="form-heading">
             <h3>{editando ? 'Reprogramar cita' : 'Agendar cita'}</h3>
-            {editando && (
+            {editando && policy.canCreateEditAppointment && (
               <button type="button" className="ghost-button" onClick={limpiarFormulario}>
                 Cancelar edicion
               </button>
@@ -224,6 +261,12 @@ export const Citas = () => {
               {error || mensaje}
             </div>
           )}
+
+          {!policy.canCreateEditAppointment ? (
+            <div className="patient-alert">
+              Solo puedes ver tus citas asignadas. No puedes agendar ni modificar citas.
+            </div>
+          ) : null}
 
           <div className="appointment-grid">
             <label>
@@ -288,9 +331,11 @@ export const Citas = () => {
             </label>
           </div>
 
-          <button type="submit" className="primary-button" disabled={guardando}>
-            {guardando ? 'Guardando...' : editando ? 'Actualizar cita' : 'Agendar cita'}
-          </button>
+          {policy.canCreateEditAppointment ? (
+            <button type="submit" className="primary-button" disabled={guardando}>
+              {guardando ? 'Guardando...' : editando ? 'Actualizar cita' : 'Agendar cita'}
+            </button>
+          ) : null}
         </form>
 
         <section className="appointments-list dashboard-card">
@@ -335,6 +380,7 @@ export const Citas = () => {
                       <td>
                         <strong>{cita.paciente_nombre}</strong>
                         <span>{cita.paciente_identidad}</span>
+                        <span>{cita.motivo || 'Sin motivo registrado'}</span>
                       </td>
                       <td>{cita.optometra_nombre}</td>
                       <td>
@@ -345,10 +391,12 @@ export const Citas = () => {
                       <td>{cita.requiere_pago_previo ? (cita.pago_verificado ? 'Verificado' : 'Pendiente') : 'No requiere'}</td>
                       <td>
                         <div className="table-actions">
-                          <button type="button" className="table-button" onClick={() => editarCita(cita)}>
-                            Editar
-                          </button>
-                          {cita.requiere_pago_previo && !cita.pago_verificado ? (
+                          {policy.canCreateEditAppointment && ['Agendada', 'Reprogramada'].includes(String(cita.estado || '')) && (
+                            <button type="button" className="table-button" onClick={() => editarCita(cita)}>
+                              Editar
+                            </button>
+                          )}
+                          {policy.canConfirmPayment && cita.requiere_pago_previo && !cita.pago_verificado && (
                             <button
                               type="button"
                               className="table-button payment-button"
@@ -357,7 +405,8 @@ export const Citas = () => {
                             >
                               {verificandoPago ? 'Verificando...' : 'Confirmar pago'}
                             </button>
-                          ) : (
+                          )}
+                          {policy.canManageClinicalConsults && cita.pago_verificado && !['Cancelada', 'Atendida'].includes(String(cita.estado || '')) && (
                             <Link
                               className="table-button"
                               to={`/dashboard/consultas?cita_id=${cita.cita_id}&paciente_id=${cita.paciente_id}&optometra_id=${cita.optometra_id}`}
@@ -365,14 +414,15 @@ export const Citas = () => {
                               Nueva consulta
                             </Link>
                           )}
-                          <button
-                            type="button"
-                            className="table-button danger-button"
-                            onClick={() => cancelarCita(cita)}
-                            disabled={cita.estado === 'Cancelada'}
-                          >
-                            Cancelar
-                          </button>
+                          {policy.canCancelAppointment && !['Cancelada', 'Atendida'].includes(String(cita.estado || '')) && (
+                            <button
+                              type="button"
+                              className="table-button danger-button"
+                              onClick={() => cancelarCita(cita)}
+                            >
+                              Cancelar
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

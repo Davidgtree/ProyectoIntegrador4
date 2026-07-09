@@ -1,9 +1,49 @@
 const { sql, getPool } = require('../config/db');
 
-function validarVenta(data) {
-    if (!data.paciente_id) {
-        return 'Debe seleccionar un paciente para la venta.';
+function getBillingAccessPolicy(rolId) {
+    const numericRoleId = Number(rolId);
+
+    if (numericRoleId === 1) {
+        return {
+            canViewBilling: true,
+            canCreateSale: false,
+            canConfirmSale: false,
+            canVoidSale: false,
+            canManagePayments: false,
+            canEmitInvoice: false,
+        };
     }
+
+    if (numericRoleId === 3) {
+        return {
+            canViewBilling: true,
+            canCreateSale: true,
+            canConfirmSale: true,
+            canVoidSale: true,
+            canManagePayments: true,
+            canEmitInvoice: true,
+        };
+    }
+
+    return {
+        canViewBilling: false,
+        canCreateSale: false,
+        canConfirmSale: false,
+        canVoidSale: false,
+        canManagePayments: false,
+        canEmitInvoice: false,
+    };
+}
+
+function normalizarEstadoVenta(estado) {
+    const valor = String(estado || '').trim();
+    if (['Confirmada', 'Anulada'].includes(valor)) {
+        return valor;
+    }
+    return 'Confirmada';
+}
+
+function validarVenta(data) {
     if (!Array.isArray(data.items) || data.items.length === 0) {
         return 'La venta debe contener al menos un producto.';
     }
@@ -75,17 +115,23 @@ function mapFactura(row) {
         fecha_emision: row.fecha_emision,
     };
 }
-
 async function generarNumeroConsecutivo(pool, tabla, columna) {
-    const result = await pool.request().query(
-        `SELECT CAST(ISNULL(MAX(TRY_CAST(${columna} AS INT)), 0) + 1 AS VARCHAR(10)) AS siguiente FROM ${tabla}`
-    );
-    return result.recordset[0]?.siguiente || '1';
+    const result = await pool.request()
+        .query(`SELECT MAX(CAST(SUBSTRING(${columna}, 2, LEN(${columna})) AS INT)) AS max_num FROM ${tabla}`);
+    const maxNum = result.recordset[0].max_num || 0;
+    const siguiente = maxNum + 1;
+    return `F${String(siguiente).padStart(6, '0')}`;
 }
+
 
 async function listarVentas(req, res) {
     const { buscar = '' } = req.query;
     const termino = `%${buscar.trim()}%`;
+    const policy = getBillingAccessPolicy(req.user?.rol_id);
+
+    if (!policy.canViewBilling) {
+        return res.status(403).json({ message: 'No tienes permisos para ver facturación' });
+    }
 
     try {
         const pool = await getPool();
@@ -116,6 +162,12 @@ async function listarVentas(req, res) {
 
 async function obtenerVenta(req, res) {
     const id = Number(req.params.id);
+    const policy = getBillingAccessPolicy(req.user?.rol_id);
+
+    if (!policy.canViewBilling) {
+        return res.status(403).json({ message: 'No tienes permisos para ver facturación' });
+    }
+
     try {
         const pool = await getPool();
         const ventaResult = await pool.request()
@@ -167,17 +219,23 @@ async function crearVenta(req, res) {
     const error = validarVenta(req.body);
     if (error) return res.status(400).json({ message: error });
 
+    const policy = getBillingAccessPolicy(req.user?.rol_id);
+
+    if (!policy.canCreateSale) {
+        return res.status(403).json({ message: 'No tienes permisos para crear ventas' });
+    }
+
     const {
         paciente_id,
-        historia_id,
-        caja_id,
-        vendedor_id,
-        estado = 'Pendiente',
+        estado,
         impuestos = 0,
         motivo_descuento,
         items,
+        forma_pago,
+        monto,
     } = req.body;
 
+    const estadoVenta = normalizarEstadoVenta(estado);
     const subtotal = items.reduce(
         (total, item) => total + Number(item.cantidad) * Number(item.precio_unitario),
         0
@@ -196,14 +254,12 @@ async function crearVenta(req, res) {
 
         try {
             const request = new sql.Request(transaction);
-            const numeroVenta = await generarNumeroConsecutivo(pool, 'Ventas', 'numero_venta');
 
-            request.input('numero_venta', sql.VarChar(10), numeroVenta)
-                .input('paciente_id', sql.Int, Number(paciente_id))
-                .input('historia_id', sql.Int, historia_id ? Number(historia_id) : null)
-                .input('caja_id', sql.Int, caja_id ? Number(caja_id) : null)
-                .input('vendedor_id', sql.Int, vendedor_id ? Number(vendedor_id) : null)
-                .input('estado', sql.VarChar(30), estado)
+            request.input('paciente_id', sql.Int, paciente_id ? Number(paciente_id) : null)
+                .input('historia_id', sql.Int, null)
+                .input('caja_id', sql.Int, null)
+                .input('vendedor_id', sql.Int, null)
+                .input('estado', sql.VarChar(30), estadoVenta)
                 .input('subtotal', sql.Decimal(18, 4), subtotal)
                 .input('descuento_total', sql.Decimal(18, 4), descuento_total)
                 .input('impuestos', sql.Decimal(18, 4), impuestoValor)
@@ -211,29 +267,41 @@ async function crearVenta(req, res) {
                 .input('motivo_descuento', sql.VarChar(300), motivo_descuento || null);
 
             const ventaResult = await request.query(`INSERT INTO Ventas
-                    (numero_venta, paciente_id, historia_id, caja_id, vendedor_id, estado,
+                    (paciente_id, historia_id, caja_id, vendedor_id, estado,
                      subtotal, descuento_total, impuestos, total, motivo_descuento,
                      creado_en)
                 OUTPUT INSERTED.venta_id
                 VALUES
-                    (@numero_venta, @paciente_id, @historia_id, @caja_id, @vendedor_id, @estado,
+                    (@paciente_id, @historia_id, @caja_id, @vendedor_id, @estado,
                      @subtotal, @descuento_total, @impuestos, @total, @motivo_descuento,
                      SYSUTCDATETIME())`);
 
             const venta_id = ventaResult.recordset[0].venta_id;
-            for (const item of items) {
+            if (forma_pago) {
                 await new sql.Request(transaction)
                     .input('venta_id', sql.Int, venta_id)
-                    .input('producto_id', sql.Int, Number(item.producto_id))
-                    .input('cantidad', sql.Decimal(18, 4), Number(item.cantidad))
-                    .input('precio_unitario', sql.Decimal(18, 4), Number(item.precio_unitario))
-                    .input('descuento_pct', sql.Decimal(18, 4), Number(item.descuento_pct) || 0)
-                    .input('subtotal', sql.Decimal(18, 4), Number(item.subtotal || (Number(item.cantidad) * Number(item.precio_unitario) * (1 - (Number(item.descuento_pct) || 0) / 100))))
-                    .query(`INSERT INTO DetalleVenta
-                            (venta_id, producto_id, cantidad, precio_unitario, descuento_pct, subtotal)
+                    .input('forma_pago', sql.VarChar(30), forma_pago)
+                    .input('monto', sql.Decimal(18, 4), Number(monto ?? total))
+                    .input('referencia', sql.VarChar(100), null)
+                    .input('banco', sql.VarChar(100), null)
+                    .query(`INSERT INTO PagosVenta
+                            (venta_id, forma_pago, monto, referencia, banco, fecha_hora)
                             VALUES
-                            (@venta_id, @producto_id, @cantidad, @precio_unitario, @descuento_pct, @subtotal)`);
+                            (@venta_id, @forma_pago, @monto, @referencia, @banco, SYSUTCDATETIME())`);
             }
+
+for (const item of items) {
+    await new sql.Request(transaction)
+        .input('venta_id', sql.Int, venta_id)
+        .input('producto_id', sql.Int, Number(item.producto_id))
+        .input('cantidad', sql.Decimal(18, 4), Number(item.cantidad))
+        .input('precio_unitario', sql.Decimal(18, 4), Number(item.precio_unitario))
+        .input('descuento_pct', sql.Decimal(18, 4), Number(item.descuento_pct) || 0)
+        .query(`INSERT INTO DetalleVenta
+                (venta_id, producto_id, cantidad, precio_unitario, descuento_pct)
+                VALUES
+                (@venta_id, @producto_id, @cantidad, @precio_unitario, @descuento_pct)`);
+}
 
             await transaction.commit();
             return res.status(201).json({ message: 'Venta creada correctamente', venta_id });
@@ -249,6 +317,12 @@ async function crearVenta(req, res) {
 
 async function confirmarVenta(req, res) {
     const id = Number(req.params.id);
+    const policy = getBillingAccessPolicy(req.user?.rol_id);
+
+    if (!policy.canConfirmSale) {
+        return res.status(403).json({ message: 'No tienes permisos para confirmar ventas' });
+    }
+
     try {
         const pool = await getPool();
         const result = await pool.request()
@@ -271,6 +345,12 @@ async function confirmarVenta(req, res) {
 async function anularVenta(req, res) {
     const id = Number(req.params.id);
     const { motivo } = req.body;
+    const policy = getBillingAccessPolicy(req.user?.rol_id);
+
+    if (!policy.canVoidSale) {
+        return res.status(403).json({ message: 'No tienes permisos para anular ventas' });
+    }
+
     try {
         const pool = await getPool();
         const result = await pool.request()
@@ -296,6 +376,11 @@ async function anularVenta(req, res) {
 async function listarFacturas(req, res) {
     const { buscar = '' } = req.query;
     const termino = `%${buscar.trim()}%`;
+    const policy = getBillingAccessPolicy(req.user?.rol_id);
+
+    if (!policy.canViewBilling) {
+        return res.status(403).json({ message: 'No tienes permisos para ver facturación' });
+    }
 
     try {
         const pool = await getPool();
@@ -325,6 +410,12 @@ async function listarFacturas(req, res) {
 
 async function obtenerFactura(req, res) {
     const id = Number(req.params.id);
+    const policy = getBillingAccessPolicy(req.user?.rol_id);
+
+    if (!policy.canViewBilling) {
+        return res.status(403).json({ message: 'No tienes permisos para ver facturación' });
+    }
+
     try {
         const pool = await getPool();
         const result = await pool.request()
@@ -349,6 +440,12 @@ async function obtenerFactura(req, res) {
 }
 
 async function crearFactura(req, res) {
+    const policy = getBillingAccessPolicy(req.user?.rol_id);
+
+    if (!policy.canEmitInvoice) {
+        return res.status(403).json({ message: 'No tienes permisos para emitir facturas' });
+    }
+
     const error = validarFactura(req.body);
     if (error) return res.status(400).json({ message: error });
 
@@ -415,6 +512,12 @@ async function crearFactura(req, res) {
 
 async function listarPagosVenta(req, res) {
     const id = Number(req.params.id);
+    const policy = getBillingAccessPolicy(req.user?.rol_id);
+
+    if (!policy.canViewBilling) {
+        return res.status(403).json({ message: 'No tienes permisos para ver facturación' });
+    }
+
     try {
         const pool = await getPool();
         const result = await pool.request()
@@ -433,6 +536,12 @@ async function listarPagosVenta(req, res) {
 
 async function registrarPagoVenta(req, res) {
     const id = Number(req.params.id);
+    const policy = getBillingAccessPolicy(req.user?.rol_id);
+
+    if (!policy.canManagePayments) {
+        return res.status(403).json({ message: 'No tienes permisos para registrar pagos' });
+    }
+
     const error = validarPago(req.body);
     if (error) return res.status(400).json({ message: error });
 

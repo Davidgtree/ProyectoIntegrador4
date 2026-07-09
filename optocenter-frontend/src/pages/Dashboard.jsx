@@ -1,45 +1,136 @@
 // src/pages/Dashboard.jsx
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { hasPermission } from '../utils/permissions';
 import './Dashboard.css';
 
 const API_PACIENTES = 'http://localhost:3000/api/pacientes';
 const API_CITAS = 'http://localhost:3000/api/citas';
 const API_HISTORIAS = 'http://localhost:3000/api/historias';
+const API_BILLING = 'http://localhost:3000/api/facturacion';
+const API_PRODUCTOS = 'http://localhost:3000/api/productos';
 
 export const DashboardHome = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const nombre = user?.nombre || user?.usuario || 'usuario';
+  const roleId = Number(user?.rol_id);
+  const puedeVerPacientes = hasPermission(roleId, 'Pacientes');
+  const puedeVerCitas = hasPermission(roleId, 'Citas');
+  const puedeVerHistorias = hasPermission(roleId, 'Historias');
+  const puedeVerConsultas = hasPermission(roleId, 'Consultas');
+  const puedeVerInventario = hasPermission(roleId, 'Inventario');
+  const puedeVerProveedores = hasPermission(roleId, 'Proveedores');
+  const puedeVerFacturacion = hasPermission(roleId, 'Facturación');
+  const puedeVerUsuarios = hasPermission(roleId, 'Usuarios');
+  const puedeVerReportes = hasPermission(roleId, 'Reportes');
+  const esAdmin = roleId === 1 || (puedeVerUsuarios && puedeVerReportes && puedeVerFacturacion && puedeVerInventario);
+  const esOptometra = !esAdmin && (puedeVerCitas || puedeVerHistorias || puedeVerConsultas);
+  const esCajero = !esAdmin && puedeVerFacturacion && !puedeVerInventario;
+  const esRecepcion = !esAdmin && puedeVerCitas && !puedeVerFacturacion && !puedeVerInventario;
 
-  const [stats, setStats] = useState([
-    { label: 'Pacientes registrados', value: '-', detail: '' },
-    { label: 'Citas de hoy', value: '-', detail: '' },
-    { label: 'Consultas finalizadas', value: '-', detail: '' },
-    { label: 'Citas pendientes', value: '-', detail: '' },
-    { label: 'Citas reprogramadas', value: '-', detail: '' },
-  ]);
+  const [pacientes, setPacientes] = useState([]);
+  const [citas, setCitas] = useState([]);
+  const [historias, setHistorias] = useState([]);
   const [schedule, setSchedule] = useState([]);
+  const [ventas, setVentas] = useState([]);
+  const [facturas, setFacturas] = useState([]);
+  const [productos, setProductos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [roleError, setRoleError] = useState('');
+
+  const getHeaders = useCallback(() => {
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return headers;
+  }, [token]);
+
+  const calcularStats = useCallback(({ pacientes, citas, historias, ventas, facturas, productos }) => {
+    const pacientesCount = pacientes.length;
+    const citasHoy = citas.filter((cita) => {
+      const fecha = new Date(cita.fecha_hora_inicio);
+      const hoy = new Date();
+      return (
+        fecha.getFullYear() === hoy.getFullYear() &&
+        fecha.getMonth() === hoy.getMonth() &&
+        fecha.getDate() === hoy.getDate() &&
+        ['Agendada', 'Pendiente', 'Reprogramada'].includes(cita.estado)
+      );
+    });
+    const citasPendientes = citas.filter((cita) => ['Agendada', 'Pendiente'].includes(cita.estado)).length;
+    const citasReprogramadas = citas.filter((cita) => cita.estado === 'Reprogramada').length;
+    const consultasFinalizadas = historias.filter((historia) => historia.bloqueada).length;
+    const ventasTotales = ventas.length;
+    const facturasTotales = facturas.length;
+    const productosTotales = productos.length;
+    const productosBajoStock = productos.filter((producto) => Number(producto.stock_actual) <= Number(producto.stock_minimo)).length;
+
+    if (esAdmin) {
+      return [
+        { label: 'Pacientes registrados', value: String(pacientesCount), detail: 'Total de pacientes activos' },
+        { label: 'Ventas registradas', value: String(ventasTotales), detail: 'Ventas en el sistema' },
+        { label: 'Facturas generadas', value: String(facturasTotales), detail: 'Documentos emitidos' },
+        { label: 'Productos en stock', value: String(productosTotales), detail: 'Items disponibles' },
+        { label: 'Citas próximas', value: String(citasHoy.length), detail: 'Por atender hoy' },
+      ];
+    }
+
+    if (esOptometra) {
+      return [
+        { label: 'Pacientes registrados', value: String(pacientesCount), detail: 'Total de pacientes activos' },
+        { label: 'Citas de hoy', value: String(citasHoy.length), detail: 'Por atender hoy' },
+        { label: 'Consultas finalizadas', value: String(consultasFinalizadas), detail: 'Historias cerradas' },
+        { label: 'Citas pendientes', value: String(citasPendientes), detail: 'Pendientes en total' },
+        { label: 'Citas reprogramadas', value: String(citasReprogramadas), detail: 'Reprogramadas totales' },
+      ];
+    }
+
+    if (esCajero) {
+      return [
+        { label: 'Ventas del sistema', value: String(ventasTotales), detail: 'Operaciones registradas' },
+        { label: 'Facturas emitidas', value: String(facturasTotales), detail: 'Documentos fiscales' },
+        { label: 'Clientes activos', value: String(pacientesCount), detail: 'Pacientes registrados' },
+        { label: 'Citas pendientes', value: String(citasPendientes), detail: 'Por confirmar o cobrar' },
+        { label: 'Citas reprogramadas', value: String(citasReprogramadas), detail: 'Citas movidas' },
+      ];
+    }
+
+    if (esRecepcion) {
+      return [
+        { label: 'Productos en stock', value: String(productosTotales), detail: 'Items disponibles' },
+        { label: 'Venta total', value: String(ventasTotales), detail: 'Transacciones registradas' },
+        { label: 'Facturas generadas', value: String(facturasTotales), detail: 'Documentos emitidos' },
+        { label: 'Productos bajo stock', value: String(productosBajoStock), detail: 'Necesitan reposición' },
+        { label: 'Clientes activos', value: String(pacientesCount), detail: 'Pacientes registrados' },
+      ];
+    }
+
+    return [
+      { label: 'Pacientes registrados', value: String(pacientesCount), detail: 'Total de pacientes activos' },
+      { label: 'Citas de hoy', value: String(citasHoy.length), detail: 'Por atender hoy' },
+      { label: 'Consultas finalizadas', value: String(consultasFinalizadas), detail: 'Historias cerradas' },
+    ];
+  }, [esAdmin, esOptometra, esCajero, esRecepcion]);
+
+  const stats = useMemo(
+    () => calcularStats({ pacientes, citas, historias, ventas, facturas, productos }),
+    [calcularStats, pacientes, citas, historias, ventas, facturas, productos]
+  );
 
   useEffect(() => {
-    const cargarDashboard = async () => {
+    const cargarDatosGenerales = async () => {
       setCargando(true);
       setError('');
 
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-      const hoy = new Date();
-      const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-
-      const formatearFecha = (valor) => {
-        const fecha = new Date(valor);
-        if (Number.isNaN(fecha.getTime())) return '';
-        return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
-      };
-
       try {
+        const headers = getHeaders();
         const [pacientesRes, citasRes, historiasRes] = await Promise.all([
           fetch(API_PACIENTES, { headers }),
           fetch(API_CITAS, { headers }),
@@ -59,33 +150,31 @@ export const DashboardHome = () => {
         const citas = Array.isArray(citasData) ? citasData : [];
         const historias = Array.isArray(historiasData) ? historiasData : [];
 
-        const citasHoy = citas.filter((cita) =>
-          formatearFecha(cita.fecha_hora_inicio) === fechaHoy &&
-          ['Agendada', 'Pendiente', 'Reprogramada'].includes(cita.estado)
-        );
-        const citasPendientes = citas.filter((cita) => ['Agendada', 'Pendiente'].includes(cita.estado)).length;
-        const citasReprogramadas = citas.filter((cita) => cita.estado === 'Reprogramada').length;
-        const consultasFinalizadas = historias.filter((historia) => historia.bloqueada).length;
+        const hoy = new Date();
+        const citasHoy = citas.filter((cita) => {
+          const fecha = new Date(cita.fecha_hora_inicio);
+          return (
+            fecha.getFullYear() === hoy.getFullYear() &&
+            fecha.getMonth() === hoy.getMonth() &&
+            fecha.getDate() === hoy.getDate() &&
+            ['Agendada', 'Pendiente', 'Reprogramada'].includes(cita.estado)
+          );
+        });
 
-        setStats([
-          { label: 'Pacientes registrados', value: String(pacientesData.length), detail: 'Total de pacientes activos' },
-          { label: 'Citas de hoy', value: String(citasHoy.length), detail: 'Por atender hoy' },
-          { label: 'Consultas finalizadas', value: String(consultasFinalizadas), detail: 'Historias cerradas' },
-          { label: 'Citas pendientes', value: String(citasPendientes), detail: 'Pendientes en total' },
-          { label: 'Citas reprogramadas', value: String(citasReprogramadas), detail: 'Reprogramadas totales' },
-        ]);
-
-        const agenda = citasHoy
-          .filter((cita) => ['Agendada', 'Pendiente', 'Reprogramada'].includes(cita.estado))
+        setPacientes(Array.isArray(pacientesData) ? pacientesData : []);
+        setCitas(citas);
+        setHistorias(historias);
+        setSchedule(citasHoy
           .sort((a, b) => new Date(a.fecha_hora_inicio) - new Date(b.fecha_hora_inicio))
           .slice(0, 3)
           .map((item) => ({
             time: new Date(item.fecha_hora_inicio).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
             patient: item.paciente_nombre || 'Paciente',
             status: item.estado || 'Sin estado',
-          }));
+          }))
+        );
 
-        setSchedule(agenda);
+        setError('');
       } catch (err) {
         setError(err.message || 'Error cargando dashboard');
       } finally {
@@ -93,8 +182,83 @@ export const DashboardHome = () => {
       }
     };
 
-    cargarDashboard();
-  }, []);
+    const cargarFacturacion = async () => {
+      try {
+        const headers = getHeaders();
+        const [ventasRes, facturasRes] = await Promise.all([
+          fetch(`${API_BILLING}/ventas`, { headers }),
+          fetch(`${API_BILLING}/facturas`, { headers }),
+        ]);
+
+        const [ventasData, facturasData] = await Promise.all([
+          ventasRes.json(),
+          facturasRes.json(),
+        ]);
+
+        if (!ventasRes.ok) throw new Error(ventasData.message || 'Error cargando ventas');
+        if (!facturasRes.ok) throw new Error(facturasData.message || 'Error cargando facturas');
+
+        setVentas(Array.isArray(ventasData) ? ventasData : []);
+        setFacturas(Array.isArray(facturasData) ? facturasData : []);
+      } catch (err) {
+        setRoleError(err.message || 'No se pudieron cargar datos de facturación');
+      }
+    };
+
+    const cargarInventario = async () => {
+      try {
+        const headers = getHeaders();
+        const productosRes = await fetch(API_PRODUCTOS, { headers });
+        const productosData = await productosRes.json();
+        if (!productosRes.ok) throw new Error(productosData.message || 'Error cargando productos');
+        setProductos(Array.isArray(productosData) ? productosData : []);
+      } catch (err) {
+        setRoleError(err.message || 'No se pudieron cargar datos de inventario');
+      }
+    };
+
+    cargarDatosGenerales();
+
+    if (esAdmin || esCajero || esRecepcion) {
+      cargarFacturacion();
+      cargarInventario();
+    }
+  }, [esAdmin, esOptometra, esCajero, esRecepcion, getHeaders]);
+
+
+  const renderRolePanel = () => {
+    const quickLinks = [
+      { label: 'Pacientes', to: '/dashboard/pacientes', permission: 'Pacientes' },
+      { label: 'Citas', to: '/dashboard/citas', permission: 'Citas' },
+      { label: 'Consultas', to: '/dashboard/consultas', permission: 'Consultas' },
+      { label: 'Historias', to: '/dashboard/historial', permission: 'Historias' },
+      { label: 'Inventario', to: '/dashboard/inventario', permission: 'Inventario' },
+      { label: 'Proveedores', to: '/dashboard/proveedores', permission: 'Proveedores' },
+      { label: 'Facturación', to: '/dashboard/facturacion', permission: 'Facturación' },
+      { label: 'Usuarios', to: '/dashboard/usuarios', permission: 'Usuarios' },
+      { label: 'Reportes', to: '/dashboard/reportes', permission: 'Reportes' },
+    ].filter((link) => hasPermission(roleId, link.permission));
+
+    if (quickLinks.length === 0) return null;
+
+    return (
+      <article className="dashboard-card panel-card">
+        <div className="panel-heading">
+          <div>
+            <span className="section-label">Acceso rápido</span>
+            <h3>Modulos disponibles</h3>
+          </div>
+        </div>
+        <div className="quick-actions">
+          {quickLinks.map((link) => (
+            <Link key={link.to} to={link.to}>
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      </article>
+    );
+  };
 
   return (
     <div className="dashboard-home">
@@ -104,12 +268,9 @@ export const DashboardHome = () => {
           <h2>Bienvenido, {nombre}</h2>
           <p>Administra pacientes, citas, consultas e inventario desde un solo panel.</p>
         </div>
-        <Link className="welcome-button" to="/dashboard/pacientes">
-          Registrar paciente
-        </Link>
       </section>
 
-      {error && <div className="dashboard-error">{error}</div>}
+      {(error || roleError) && <div className="dashboard-error">{error || roleError}</div>}
 
       <section className="stats-grid">
         {stats.map((stat) => (
@@ -122,49 +283,7 @@ export const DashboardHome = () => {
       </section>
 
       <section className="dashboard-grid">
-        <article className="dashboard-card panel-card">
-          <div className="panel-heading">
-            <div>
-              <span className="section-label">Agenda</span>
-              <h3>Próximas citas</h3>
-            </div>
-            <Link to="/dashboard/citas" className="dashboard-link-button">Ver agenda</Link>
-          </div>
-
-          <div className="schedule-list">
-            {cargando ? (
-              <p>Cargando agenda...</p>
-            ) : schedule.length === 0 ? (
-              <p>No hay citas para hoy.</p>
-            ) : (
-              schedule.map((item) => (
-                <div className="schedule-item" key={`${item.time}-${item.patient}`}>
-                  <strong>{item.time}</strong>
-                  <span>{item.patient}</span>
-                  <small>{item.status}</small>
-                </div>
-              ))
-            )}
-          </div>
-        </article>
-
-        <article className="dashboard-card panel-card">
-          <div className="panel-heading">
-            <div>
-              <span className="section-label">Accesos</span>
-              <h3>Operaciones rápidas</h3>
-            </div>
-          </div>
-
-          <div className="quick-actions">
-            <Link to="/dashboard/pacientes">Nuevo paciente</Link>
-            <Link to="/dashboard/citas">Nueva cita</Link>
-            <Link to="/dashboard/consultas">Nueva consulta</Link>
-            <button type="button" className="button-disabled" disabled title="Funcionalidad no implementada">
-              Agregar producto
-            </button>
-          </div>
-        </article>
+        {renderRolePanel()}
       </section>
     </div>
   );

@@ -1,6 +1,27 @@
 .histories-page {
+  /* Variables y tipografías compartidas con el estilo 'Usuarios' */
+  --ink: #10242e;
+  --teal-deep: #0b5e58;
+  --teal: #12786f;
+  --copper: #b9793d;
+  --paper: #f6f4ef;
+  --paper-soft: #fcfbf8;
+  --line: #e4dfd3;
+  --slate: #59636b;
+
   display: grid;
   gap: 24px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--ink);
+}
+
+.dashboard-shell .dashboard-content .histories-page {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.dashboard-shell .dashboard-content .histories-page h2,
+.dashboard-shell .dashboard-content .histories-page h3 {
+  font-family: 'Fraunces', Georgia, serif;
 }
 
 .histories-header {
@@ -33,7 +54,7 @@
 }
 
 .histories-list {
-  padding: 22px;
+  padding: 32px;
 }
 
 .histories-empty {
@@ -54,7 +75,7 @@
 
 .histories-table th,
 .histories-table td {
-  padding: 14px 16px;
+  padding: 18px 20px;
   border-bottom: 1px solid #e2e8f0;
   text-align: left;
   vertical-align: middle;
@@ -83,7 +104,7 @@
 }
 
 .histories-search {
-  padding: 22px;
+  padding: 32px;
   margin-bottom: 18px;
 }
 
@@ -138,14 +159,14 @@
 
 .patients-grid {
   display: grid;
-  gap: 14px;
+  gap: 20px;
 }
 
 .patient-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 18px;
+  padding: 24px 20px;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   background: #ffffff;
@@ -176,7 +197,7 @@
 }
 
 .selected-patient {
-  padding: 22px;
+  padding: 32px;
 }
 
 .patient-summary {

@@ -1,22 +1,100 @@
-.billing-page {
-  display: grid;
-  gap: 1.5rem;
+/* ==========================================================================
+   Facturación — Ventas, facturas y pagos
+   Mismo sistema de diseño que Usuarios.css (paleta, tipografía, tono óptico)
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
+
+.billing-page,
+.billing-page *,
+.billing-page *::before,
+.billing-page *::after {
+  box-sizing: border-box;
 }
+
+.billing-page {
+  --ink: #10242e;
+  --teal-deep: #0b5e58;
+  --teal: #12786f;
+  --copper: #b9793d;
+  --paper: #f6f4ef;
+  --paper-soft: #fcfbf8;
+  --line: #e4dfd3;
+  --slate: #59636b;
+
+  display: grid;
+  gap: 26px;
+  padding: 28px 32px 48px;
+  background: var(--paper);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--ink);
+}
+
+/* ---------- Encabezado ---------- */
+
+.billing-page .section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.billing-page .section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--teal-deep);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.billing-page .section-label::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--copper);
+  box-shadow: inset 0 0 0 2px var(--paper-soft);
+  background: transparent;
+}
+
+.billing-page .section-header h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-size: 2.1rem;
+  letter-spacing: -0.01em;
+}
+
+.billing-page .section-header p {
+  margin: 0;
+  color: var(--slate);
+  max-width: 720px;
+  line-height: 1.5;
+}
+
+/* ---------- Layout de tarjetas ---------- */
 
 .billing-grid {
   display: grid;
-  gap: 1.5rem;
+  gap: 24px;
 }
 
 .billing-card {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(16, 36, 46, 0.04), 0 18px 40px rgba(16, 36, 46, 0.06);
+  padding: 26px;
 }
 
 .billing-detail-card {
   grid-column: span 2;
+  border-left: 3px solid var(--teal-deep);
 }
 
 .form-heading {
@@ -24,8 +102,26 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
 }
+
+.form-heading h3,
+.form-heading h4 {
+  margin: 0;
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.form-heading h3 {
+  font-size: 1.28rem;
+}
+
+.form-heading h4 {
+  font-size: 1.05rem;
+}
+
+/* ---------- Formularios ---------- */
 
 .billing-form {
   display: grid;
@@ -48,6 +144,10 @@
   grid-template-columns: 1.8fr 0.8fr 0.9fr 0.9fr 0.9fr auto;
   gap: 0.75rem;
   align-items: end;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
 }
 
 .billing-item-row label,
@@ -55,7 +155,10 @@
 .billing-summary label,
 .full-width {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--slate);
 }
 
 .billing-summary {
@@ -63,7 +166,20 @@
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1rem;
   align-items: center;
+  padding: 16px 18px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
+
+.billing-summary strong {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  color: var(--ink);
+  margin-right: 6px;
+}
+
+/* ---------- Tablas ---------- */
 
 .billing-table-wrap {
   overflow-x: auto;
@@ -74,18 +190,33 @@
   border-collapse: collapse;
 }
 
+.billing-table thead th {
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--teal-deep);
+  background: rgba(11, 94, 88, 0.06);
+}
+
 .billing-table th,
 .billing-table td {
   padding: 0.85rem 0.9rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--line);
   text-align: left;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
+}
+
+.billing-table tbody tr:hover {
+  background: rgba(11, 94, 88, 0.04);
 }
 
 .billing-actions-cell {
   display: flex;
   gap: 0.5rem;
 }
+
+/* ---------- Detalle de venta ---------- */
 
 .billing-detail {
   display: grid;
@@ -96,64 +227,225 @@
   display: grid;
   grid-template-columns: 140px 1fr;
   gap: 0.75rem;
+  font-size: 0.92rem;
+}
+
+.billing-detail-row span {
+  color: var(--slate);
+}
+
+.billing-detail-row strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.billing-detail-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .billing-subsection {
   display: grid;
   gap: 1rem;
-  background: #f9fafb;
-  padding: 1rem;
-  border-radius: 10px;
+  background: var(--paper);
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
 }
+
+.billing-subsection h4 {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* ---------- Botones ---------- */
 
 .primary-button,
 .secondary-button,
 .table-button {
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1.1rem;
   border-radius: 10px;
   border: none;
   cursor: pointer;
+  font-family: inherit;
   font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease;
 }
 
 .primary-button {
-  background: #2563eb;
+  background: var(--teal-deep);
   color: #ffffff;
 }
 
-.secondary-button,
+.primary-button:hover {
+  box-shadow: 0 6px 16px rgba(11, 94, 88, 0.28);
+  transform: translateY(-1px);
+}
+
+.secondary-button {
+  background: transparent;
+  color: var(--slate);
+  border: 1px solid var(--line);
+}
+
+.secondary-button:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+
 .table-button {
-  background: #e5e7eb;
-  color: #111827;
+  background: var(--teal);
+  color: #ffffff;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.85rem;
 }
 
-input,
-select,
-textarea {
+.table-button:hover {
+  box-shadow: 0 6px 16px rgba(18, 120, 111, 0.28);
+  transform: translateY(-1px);
+}
+
+.primary-button:active,
+.secondary-button:active,
+.table-button:active {
+  transform: translateY(0);
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.table-button:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
+
+/* ---------- Campos ---------- */
+
+.billing-page input,
+.billing-page select,
+.billing-page textarea {
   width: 100%;
-  border: 1px solid #d1d5db;
+  min-height: 44px;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
   font-size: 0.95rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-textarea {
-  resize: vertical;
+.billing-page input:hover,
+.billing-page select:hover,
+.billing-page textarea:hover {
+  border-color: #cfc7b4;
 }
+
+.billing-page input:focus,
+.billing-page select:focus,
+.billing-page textarea:focus {
+  outline: none;
+  border-color: var(--teal);
+  background: var(--paper-soft);
+  box-shadow: 0 0 0 3px rgba(18, 120, 111, 0.14);
+}
+
+.billing-page input[readonly] {
+  background: rgba(11, 94, 88, 0.06);
+  color: var(--slate);
+}
+
+.billing-page textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+/* ---------- Alertas ---------- */
 
 .appointment-alert,
 .appointment-alert-error {
-  padding: 1rem;
-  border-radius: 10px;
-  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  border-radius: 12px;
+  margin-bottom: 0;
+  font-size: 0.92rem;
+  font-weight: 500;
 }
 
 .appointment-alert {
-  background: #d1fae5;
-  color: #065f46;
+  background: #e6f2ea;
+  color: #1f6e45;
+  border: 1px solid #cbe6d5;
+}
+
+.appointment-alert::before {
+  content: '✓';
+  font-weight: 700;
 }
 
 .appointment-alert-error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: #fbeae6;
+  color: #9a3b24;
+  border: 1px solid #f2d2c8;
+}
+
+.appointment-alert-error::before {
+  content: '!';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #9a3b24;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1100px) {
+  .billing-detail-card {
+    grid-column: span 1;
+  }
+
+  .billing-item-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .billing-page {
+    padding: 20px 16px 36px;
+  }
+
+  .billing-item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .billing-detail-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .billing-actions-cell {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary-button,
+  .secondary-button,
+  .table-button,
+  .billing-page input,
+  .billing-page select,
+  .billing-page textarea {
+    transition: none;
+  }
 }

@@ -8,7 +8,7 @@ import './Auth.css';
 const ROLES = [
   { id: 2, nombre: 'Optómetra' },
   { id: 3, nombre: 'Cajero' },
-  { id: 4, nombre: 'Vendedor' },
+  { id: 4, nombre: 'Recepcion' },
 ];
 
 export const Registro = () => {

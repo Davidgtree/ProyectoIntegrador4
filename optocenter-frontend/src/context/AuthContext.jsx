@@ -1,5 +1,6 @@
 // src/context/AuthContext.jsx
 import { createContext, useContext, useState } from 'react';
+import { DEFAULT_ROLE_PERMISSIONS } from '../utils/permissions';
 
 const AuthContext = createContext();
 
@@ -15,9 +16,14 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
 
   const guardarSesion = (data) => {
+    const empleado = {
+      ...data.empleado,
+      permisos: data.empleado?.permisos || DEFAULT_ROLE_PERMISSIONS[Number(data.empleado?.rol_id)] || [],
+    };
+
     localStorage.setItem(TOKEN_KEY, data.token);
-    localStorage.setItem(USER_KEY, JSON.stringify(data.empleado));
-    setUser(data.empleado);
+    localStorage.setItem(USER_KEY, JSON.stringify(empleado));
+    setUser(empleado);
     setToken(data.token);
   };
 
@@ -62,6 +68,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const forgotPassword = async (correo) => {
+    try {
+      const response = await fetch(`${API_URL}/recuperar-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correo }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        return { success: true, msg: data.message || 'Revisa tu correo para continuar con la recuperación.' };
+      }
+      return { success: false, msg: data.message || 'No se pudo procesar la solicitud.' };
+    } catch (error) {
+      console.error('Error de conexión:', error);
+      return { success: false, msg: 'No se pudo conectar con el servidor.' };
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
@@ -70,7 +95,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, login, register, forgotPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

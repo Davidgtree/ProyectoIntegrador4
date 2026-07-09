@@ -1,7 +1,28 @@
 .appointments-page {
+  /* Variables y tipografías compartidas con el estilo 'Usuarios' */
+  --ink: #10242e;
+  --teal-deep: #0b5e58;
+  --teal: #12786f;
+  --copper: #b9793d;
+  --paper: #f6f4ef;
+  --paper-soft: #fcfbf8;
+  --line: #e4dfd3;
+  --slate: #59636b;
+
   display: flex;
   flex-direction: column;
   gap: 22px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--ink);
+}
+
+.dashboard-shell .dashboard-content .appointments-page {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.dashboard-shell .dashboard-content .appointments-page h2,
+.dashboard-shell .dashboard-content .appointments-page h3 {
+  font-family: 'Fraunces', Georgia, serif;
 }
 
 .appointments-header h2 {
@@ -19,13 +40,13 @@
 .appointments-layout {
   display: grid;
   grid-template-columns: minmax(330px, 0.68fr) minmax(0, 1.32fr);
-  gap: 18px;
+  gap: 26px;
   align-items: start;
 }
 
 .appointment-form,
 .appointments-list {
-  padding: 22px;
+  padding: 32px;
 }
 
 .appointment-alert {
@@ -69,15 +90,15 @@
 .appointment-grid textarea,
 .appointments-search input {
   width: 100%;
-  min-height: 40px;
-  padding: 9px 11px;
+  min-height: 44px;
+  padding: 14px 16px;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border-radius: 12px;
   box-sizing: border-box;
   background: #ffffff;
   color: #172033;
   font: inherit;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   outline: none;
 }
 
@@ -138,7 +159,7 @@
 
 .appointments-table th,
 .appointments-table td {
-  padding: 13px 12px;
+  padding: 16px 18px;
   border-bottom: 1px solid #e4edf3;
   text-align: left;
   vertical-align: middle;

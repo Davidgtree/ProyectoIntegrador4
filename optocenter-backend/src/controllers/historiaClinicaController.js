@@ -112,7 +112,7 @@ const SELECT_HISTORIA = `SELECT
     INNER JOIN Empleados e ON e.empleado_id = h.optometra_id`;
 
 async function listarHistorias(req, res) {
-    const { paciente_id = '' } = req.query;
+    const { paciente_id = '', buscar = '' } = req.query;
 
     try {
         const pool = await getPool();
@@ -122,6 +122,9 @@ async function listarHistorias(req, res) {
         if (paciente_id) {
             request.input('paciente_id', sql.Int, Number(paciente_id));
             where = 'WHERE h.paciente_id = @paciente_id';
+        } else if (buscar) {
+            request.input('buscar', sql.VarChar(160), `%${buscar.trim()}%`);
+            where = `WHERE p.numero_identidad LIKE @buscar OR CONCAT(p.nombres, ' ', p.apellidos) LIKE @buscar`;
         }
 
         const result = await request.query(`${SELECT_HISTORIA} ${where} ORDER BY h.fecha_consulta DESC`);
@@ -180,14 +183,23 @@ async function crearHistoria(req, res) {
 
     try {
         const pool = await getPool();
+        const rolId = Number(req.user?.rol_id);
+
+        if (rolId !== 2) {
+            return res.status(403).json({ message: 'Solo el optómetra puede gestionar consultas clínicas' });
+        }
 
         if (cita_id) {
             const citaResult = await pool.request()
                 .input('cita_id', sql.Int, Number(cita_id))
-                .query('SELECT requiere_pago_previo, pago_verificado FROM Citas WHERE cita_id = @cita_id');
+                .query('SELECT optometra_id, requiere_pago_previo, pago_verificado FROM Citas WHERE cita_id = @cita_id');
 
             if (citaResult.recordset.length > 0) {
                 const cita = citaResult.recordset[0];
+                if (Number(cita.optometra_id) !== Number(req.user?.empleado_id)) {
+                    return res.status(403).json({ message: 'Solo puedes registrar consultas para tus citas asignadas' });
+                }
+
                 if (cita.requiere_pago_previo && !cita.pago_verificado) {
                     return res.status(400).json({ message: 'No se puede crear la consulta porque la cita requiere pago previo y este aún no se ha verificado.' });
                 }
@@ -247,10 +259,15 @@ async function actualizarHistoria(req, res) {
 
     try {
         const pool = await getPool();
+        const rolId = Number(req.user?.rol_id);
+
+        if (rolId !== 2) {
+            return res.status(403).json({ message: 'Solo el optómetra puede gestionar consultas clínicas' });
+        }
 
         const estadoActual = await pool.request()
             .input('id', sql.Int, id)
-            .query('SELECT bloqueada FROM HistoriasClinicas WHERE historia_id = @id');
+            .query('SELECT bloqueada, optometra_id FROM HistoriasClinicas WHERE historia_id = @id');
 
         if (estadoActual.recordset.length === 0) {
             return res.status(404).json({ message: 'Historia clinica no encontrada' });
@@ -258,6 +275,10 @@ async function actualizarHistoria(req, res) {
 
         if (estadoActual.recordset[0].bloqueada) {
             return res.status(403).json({ message: 'La historia clinica esta finalizada y no puede editarse' });
+        }
+
+        if (Number(estadoActual.recordset[0].optometra_id) !== Number(req.user?.empleado_id)) {
+            return res.status(403).json({ message: 'Solo puedes editar tus propias consultas clínicas' });
         }
 
         const columnas = CAMPOS_CLINICOS.map(([campo]) => campo);

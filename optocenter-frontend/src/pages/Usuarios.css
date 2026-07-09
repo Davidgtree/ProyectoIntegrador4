@@ -1,18 +1,27 @@
 /* ==========================================================================
-   Inventario — Diseño alineado con Usuarios
-   CSS-only: adapta la estética actual del JSX sin tocar la lógica.
+   Usuarios — Gestión de usuarios (panel de administración óptica)
+
+   Paleta
+   --ink        #10242E  texto principal / cabeceras
+   --teal-deep  #0B5E58  acento primario (marca)
+   --teal       #12786F  acento interactivo
+   --copper     #B9793D  acento cálido (aro de foco / estados)
+   --paper      #F6F4EF  fondo general, cálido en vez de gris frío
+   --paper-soft #FCFBF8  fondo de tarjetas
+   --line       #E4DFD3  bordes, cálidos en vez de slate frío
+   --slate      #59636B  texto secundario
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
 
-.inventory-page,
-.inventory-page *,
-.inventory-page *::before,
-.inventory-page *::after {
+.usuarios-page,
+.usuarios-page *,
+.usuarios-page *::before,
+.usuarios-page *::after {
   box-sizing: border-box;
 }
 
-.inventory-page {
+.usuarios-page {
   --ink: #10242e;
   --teal-deep: #0b5e58;
   --teal: #12786f;
@@ -31,7 +40,9 @@
   color: var(--ink);
 }
 
-.inventory-header {
+/* ---------- Encabezado ---------- */
+
+.usuarios-header {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -39,7 +50,7 @@
   border-bottom: 1px solid var(--line);
 }
 
-.inventory-header .section-label {
+.section-label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -50,7 +61,8 @@
   letter-spacing: 0.14em;
 }
 
-.inventory-header .section-label::before {
+/* Aro de enfoque: un guiño discreto a una lente óptica junto a cada eyebrow */
+.section-label::before {
   content: '';
   width: 9px;
   height: 9px;
@@ -60,7 +72,7 @@
   background: transparent;
 }
 
-.inventory-header h2 {
+.usuarios-header h2 {
   margin: 0;
   color: var(--ink);
   font-family: 'Fraunces', Georgia, serif;
@@ -69,14 +81,16 @@
   letter-spacing: -0.01em;
 }
 
-.inventory-header p {
+.usuarios-header p {
   margin: 0;
   color: var(--slate);
   max-width: 720px;
   line-height: 1.5;
 }
 
-.inventory-layout {
+/* ---------- Layout ---------- */
+
+.usuarios-layout {
   display: grid;
   grid-template-columns: 1fr 1.05fr;
   gap: 24px;
@@ -88,52 +102,54 @@
   border: 1px solid var(--line);
   border-radius: 18px;
   box-shadow: 0 1px 2px rgba(16, 36, 46, 0.04), 0 18px 40px rgba(16, 36, 46, 0.06);
-}
-
-.inventory-form,
-.inventory-list {
   padding: 26px;
 }
 
-.inventory-form {
+.usuarios-form-card {
   position: relative;
   border-left: 3px solid var(--teal-deep);
 }
 
-.form-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
-  margin-bottom: 18px;
+.panel-heading {
+  margin-bottom: 20px;
 }
 
-.form-heading h3 {
-  margin: 0;
+.panel-heading h3 {
+  margin: 4px 0 0;
   font-family: 'Fraunces', Georgia, serif;
   font-weight: 600;
   font-size: 1.28rem;
   color: var(--ink);
 }
 
-.inventory-grid {
+/* ---------- Formulario ---------- */
+
+.usuarios-form {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
 }
 
-.inventory-grid label {
+.usuarios-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.usuarios-field {
   display: flex;
   flex-direction: column;
   gap: 7px;
+}
+
+.usuarios-field label {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--slate);
+  letter-spacing: 0.01em;
 }
 
-.inventory-grid input,
-.inventory-grid select,
-.inventory-grid textarea {
+.usuarios-field input,
+.usuarios-field select {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--line);
@@ -146,191 +162,133 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-.inventory-grid input:hover,
-.inventory-grid select:hover,
-.inventory-grid textarea:hover {
+.usuarios-field input:hover,
+.usuarios-field select:hover {
   border-color: #cfc7b4;
 }
 
-.inventory-grid input:focus,
-.inventory-grid select:focus,
-.inventory-grid textarea:focus {
+.usuarios-field input:focus,
+.usuarios-field select:focus {
   outline: none;
   border-color: var(--teal);
   background: var(--paper-soft);
   box-shadow: 0 0 0 3px rgba(18, 120, 111, 0.14);
 }
 
-.inventory-grid textarea {
-  min-height: 96px;
-  resize: vertical;
-}
-
-.inventory-grid .full-width {
-  grid-column: 1 / -1;
-}
-
-.inventory-grid input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
-  min-height: auto;
-  accent-color: var(--teal-deep);
-}
-
-.inventory-actions {
+.usuarios-form-actions {
   display: flex;
+  align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin-top: 16px;
+  margin-top: 4px;
 }
 
-.primary-button,
-.ghost-button,
+/* ---------- Botones ---------- */
+
+.dashboard-action,
+.dashboard-secondary,
 .table-button {
-  cursor: pointer;
   border: none;
   border-radius: 10px;
-  padding: 0.8rem 1.1rem;
+  min-width: 130px;
+  padding: 12px 18px;
+  color: #ffffff;
   font-family: inherit;
   font-weight: 600;
   font-size: 0.92rem;
   letter-spacing: 0.01em;
+  cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease;
 }
 
-.primary-button {
-  background: var(--teal-deep);
-  color: #fff;
-}
-
-.primary-button:hover,
+.dashboard-action:hover,
 .table-button:hover {
   box-shadow: 0 6px 16px rgba(11, 94, 88, 0.28);
   transform: translateY(-1px);
 }
 
-.primary-button:disabled {
+.dashboard-action:active,
+.table-button:active {
+  transform: translateY(0);
+}
+
+.dashboard-action:focus-visible,
+.dashboard-secondary:focus-visible,
+.table-button:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
+
+.dashboard-action:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-.primary-button.secondary {
-  background: var(--copper);
+.dashboard-action {
+  background: var(--teal-deep);
 }
 
-.ghost-button {
+.dashboard-secondary {
   background: transparent;
   color: var(--slate);
   border: 1px solid var(--line);
+  box-shadow: none;
 }
 
-.ghost-button:hover {
+.dashboard-secondary:hover {
   background: var(--paper);
   color: var(--ink);
 }
 
 .table-button {
   background: var(--teal);
-  color: #fff;
-  padding: 0.55rem 0.9rem;
+  min-width: 0;
+  padding: 9px 14px;
   font-size: 0.85rem;
 }
 
-.primary-button:active,
-.ghost-button:active,
-.table-button:active {
-  transform: translateY(0);
+.table-button.desbloquear {
+  background: var(--copper);
 }
 
-.primary-button:focus-visible,
-.ghost-button:focus-visible,
-.table-button:focus-visible {
-  outline: 2px solid var(--copper);
-  outline-offset: 2px;
+.table-button.desbloquear:hover {
+  box-shadow: 0 6px 16px rgba(185, 121, 61, 0.32);
 }
 
-.inventory-table-wrap {
-  overflow-x: auto;
-}
+/* ---------- Mensajes de estado ---------- */
 
-.inventory-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0 10px;
-}
-
-.inventory-table thead th {
-  text-transform: uppercase;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--teal-deep);
-  padding: 0 0.9rem 8px;
-  text-align: left;
-  border-bottom: 1px solid var(--line);
-}
-
-.inventory-table tbody tr {
-  background: var(--paper);
-  border: 1px solid var(--line);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.inventory-table tbody tr:hover {
-  border-color: #cfc7b4;
-  box-shadow: 0 4px 14px rgba(16, 36, 46, 0.05);
-  background: var(--paper);
-}
-
-.inventory-table td {
-  padding: 0.9rem 0.9rem;
-  font-size: 0.9rem;
-  color: var(--ink);
-}
-
-.inventory-table tbody td:first-child {
-  border-top-left-radius: 12px;
-  border-bottom-left-radius: 12px;
-  font-weight: 600;
-}
-
-.inventory-table tbody td:last-child {
-  border-top-right-radius: 12px;
-  border-bottom-right-radius: 12px;
-}
-
-.appointment-alert,
-.appointment-alert-error {
+.dashboard-success,
+.dashboard-error {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 13px 16px;
   border-radius: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
   font-size: 0.92rem;
   font-weight: 500;
 }
 
-.appointment-alert {
+.dashboard-success {
   background: #e6f2ea;
   color: #1f6e45;
   border: 1px solid #cbe6d5;
 }
 
-.appointment-alert::before {
+.dashboard-success::before {
   content: '✓';
   font-weight: 700;
 }
 
-.appointment-alert-error {
+.dashboard-error {
   background: #fbeae6;
   color: #9a3b24;
   border: 1px solid #f2d2c8;
 }
 
-.appointment-alert-error::before {
+.dashboard-error::before {
   content: '!';
   display: inline-flex;
   align-items: center;
@@ -342,33 +300,108 @@
   color: #fff;
   font-size: 0.72rem;
   font-weight: 700;
+}
+
+/* ---------- Tabla de usuarios ---------- */
+
+.usuarios-table {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.usuario-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.usuario-row:hover {
+  border-color: #cfc7b4;
+  box-shadow: 0 4px 14px rgba(16, 36, 46, 0.05);
+}
+
+.usuario-info {
+  display: grid;
+  gap: 5px;
+}
+
+.usuario-info strong {
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.usuario-info span {
+  color: var(--slate);
+  font-size: 0.88rem;
+}
+
+.usuario-info small {
+  display: inline-block;
+  width: fit-content;
+  margin-top: 2px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(11, 94, 88, 0.09);
+  color: var(--teal-deep);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.usuario-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   flex-shrink: 0;
 }
 
+/* ---------- Responsive ---------- */
+
 @media (max-width: 1000px) {
-  .inventory-layout {
+  .usuarios-layout {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
-  .inventory-page {
+  .usuarios-page {
     padding: 20px 16px 36px;
   }
 
-  .form-heading {
-    flex-wrap: wrap;
+  .usuarios-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .usuario-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .usuario-actions {
+    width: 100%;
+  }
+
+  .table-button {
+    flex: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .primary-button,
-  .ghost-button,
+  .dashboard-action,
+  .dashboard-secondary,
   .table-button,
-  .inventory-grid input,
-  .inventory-grid select,
-  .inventory-grid textarea,
-  .inventory-table tbody tr {
+  .usuario-row,
+  .usuarios-field input,
+  .usuarios-field select {
     transition: none;
   }
 }

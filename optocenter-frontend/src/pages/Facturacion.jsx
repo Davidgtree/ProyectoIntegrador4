@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { getBillingAccessPolicy } from '../utils/permissions';
 import './Facturacion.css';
 
 const API_BILLING = 'http://localhost:3000/api/facturacion';
@@ -8,11 +9,9 @@ const API_PRODUCTOS = 'http://localhost:3000/api/productos';
 
 const initialVentaForm = {
   paciente_id: '',
-  historia_id: '',
-  caja_id: '',
-  vendedor_id: '',
   impuestos: '0.00',
   motivo_descuento: '',
+  forma_pago: 'Efectivo',
 };
 
 const initialItem = {
@@ -39,7 +38,7 @@ const initialPaymentForm = {
 };
 
 export const Facturacion = () => {
-  const { token } = useAuth();
+  const { user, token } = useAuth();
   const [ventas, setVentas] = useState([]);
   const [facturas, setFacturas] = useState([]);
   const [pacientes, setPacientes] = useState([]);
@@ -54,6 +53,7 @@ export const Facturacion = () => {
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [loading, setLoading] = useState(false);
+  const policy = useMemo(() => getBillingAccessPolicy(user?.rol_id), [user?.rol_id]);
 
   const getHeaders = () => {
     const actualToken = token || localStorage.getItem('token');
@@ -201,12 +201,11 @@ export const Facturacion = () => {
 
     try {
       const payload = {
-        paciente_id: Number(ventaForm.paciente_id),
-        historia_id: ventaForm.historia_id ? Number(ventaForm.historia_id) : null,
-        caja_id: ventaForm.caja_id ? Number(ventaForm.caja_id) : null,
-        vendedor_id: ventaForm.vendedor_id ? Number(ventaForm.vendedor_id) : null,
+        paciente_id: ventaForm.paciente_id ? Number(ventaForm.paciente_id) : null,
         impuestos: Number(ventaForm.impuestos || 0),
         motivo_descuento: ventaForm.motivo_descuento || null,
+        forma_pago: ventaForm.forma_pago || null,
+        monto: Number(totalVenta.toFixed(2)),
         items: items.map((item) => ({
           producto_id: Number(item.producto_id),
           cantidad: Number(item.cantidad),
@@ -372,34 +371,23 @@ export const Facturacion = () => {
       )}
 
       <section className="billing-grid">
-        <article className="billing-card">
-          <div className="form-heading">
-            <h3>Crear nueva venta</h3>
-          </div>
-          <form className="billing-form" onSubmit={crearVenta}>
+        {policy.canCreateSale ? (
+          <article className="billing-card">
+            <div className="form-heading">
+              <h3>Crear nueva venta</h3>
+            </div>
+            <form className="billing-form" onSubmit={crearVenta}>
             <div className="billing-row">
               <label>
-                Paciente *
-                <select name="paciente_id" value={ventaForm.paciente_id} onChange={handleVentaChange} required>
-                  <option value="">Seleccionar paciente</option>
+                Paciente (opcional)
+                <select name="paciente_id" value={ventaForm.paciente_id} onChange={handleVentaChange}>
+                  <option value="">Sin paciente asignado</option>
                   {pacientes.map((paciente) => (
                     <option key={paciente.paciente_id} value={paciente.paciente_id}>
                       {paciente.nombres} {paciente.apellidos} - {paciente.numero_identidad}
                     </option>
                   ))}
                 </select>
-              </label>
-              <label>
-                Historia
-                <input name="historia_id" value={ventaForm.historia_id} onChange={handleVentaChange} placeholder="Id historia" />
-              </label>
-              <label>
-                Caja
-                <input name="caja_id" value={ventaForm.caja_id} onChange={handleVentaChange} placeholder="Id caja" />
-              </label>
-              <label>
-                Vendedor
-                <input name="vendedor_id" value={ventaForm.vendedor_id} onChange={handleVentaChange} placeholder="Id vendedor" />
               </label>
             </div>
 
@@ -505,6 +493,17 @@ export const Facturacion = () => {
               </div>
             </div>
 
+            <div className="billing-row">
+              <label>
+                Método de pago
+                <select name="forma_pago" value={ventaForm.forma_pago} onChange={handleVentaChange}>
+                  <option value="Efectivo">Efectivo</option>
+                  <option value="Tarjeta">Tarjeta</option>
+                  <option value="Transferencia">Transferencia</option>
+                </select>
+              </label>
+            </div>
+
             <label className="full-width">
               Motivo de descuento
               <input name="motivo_descuento" value={ventaForm.motivo_descuento} onChange={handleVentaChange} />
@@ -513,13 +512,19 @@ export const Facturacion = () => {
             <button type="submit" className="primary-button">
               Crear venta
             </button>
-          </form>
-        </article>
+            </form>
+          </article>
+        ) : null}
 
         <article className="billing-card">
           <div className="form-heading">
             <h3>Ventas registradas</h3>
           </div>
+          {!policy.canCreateSale && (
+            <div className="patient-alert">
+              Vista solo lectura: el administrador puede revisar ventas, detalle y facturas emitidas.
+            </div>
+          )}
           {loading ? (
             <p>Cargando ventas...</p>
           ) : (
@@ -545,9 +550,11 @@ export const Facturacion = () => {
                         <button type="button" className="table-button" onClick={() => seleccionarVenta(venta)}>
                           Ver
                         </button>
-                        <button type="button" className="table-button" onClick={() => confirmarVenta(venta.venta_id)}>
-                          Confirmar
-                        </button>
+                        {policy.canConfirmSale ? (
+                          <button type="button" className="table-button" onClick={() => confirmarVenta(venta.venta_id)}>
+                            Confirmar
+                          </button>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
@@ -579,11 +586,13 @@ export const Facturacion = () => {
                 <span>Total:</span>
                 <strong>{selectedVenta.total?.toFixed(2) ?? '-'}</strong>
               </div>
-              <div className="billing-detail-actions">
-                <button type="button" className="table-button" onClick={anularVenta}>
-                  Anular venta
-                </button>
-              </div>
+              {policy.canVoidSale ? (
+                <div className="billing-detail-actions">
+                  <button type="button" className="table-button" onClick={anularVenta}>
+                    Anular venta
+                  </button>
+                </div>
+              ) : null}
 
               <div className="billing-subsection">
                 <h4>Artículos</h4>
@@ -635,76 +644,80 @@ export const Facturacion = () => {
                     ))}
                   </tbody>
                 </table>
-                <form className="billing-form" onSubmit={registrarPago}>
-                  <div className="billing-row">
-                    <label>
-                      Forma de pago
-                      <select name="forma_pago" value={paymentForm.forma_pago} onChange={handlePaymentChange}>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Tarjeta">Tarjeta</option>
-                        <option value="Transferencia">Transferencia</option>
-                      </select>
-                    </label>
-                    <label>
-                      Monto
-                      <input type="number" step="0.01" name="monto" value={paymentForm.monto} onChange={handlePaymentChange} required />
-                    </label>
-                    <label>
-                      Referencia
-                      <input name="referencia" value={paymentForm.referencia} onChange={handlePaymentChange} />
-                    </label>
-                    <label>
-                      Banco
-                      <input name="banco" value={paymentForm.banco} onChange={handlePaymentChange} />
-                    </label>
-                  </div>
-                  <button type="submit" className="primary-button">
-                    Registrar pago
-                  </button>
-                </form>
+                {policy.canManagePayments ? (
+                  <form className="billing-form" onSubmit={registrarPago}>
+                    <div className="billing-row">
+                      <label>
+                        Forma de pago
+                        <select name="forma_pago" value={paymentForm.forma_pago} onChange={handlePaymentChange}>
+                          <option value="Efectivo">Efectivo</option>
+                          <option value="Tarjeta">Tarjeta</option>
+                          <option value="Transferencia">Transferencia</option>
+                        </select>
+                      </label>
+                      <label>
+                        Monto
+                        <input type="number" step="0.01" name="monto" value={paymentForm.monto} onChange={handlePaymentChange} required />
+                      </label>
+                      <label>
+                        Referencia
+                        <input name="referencia" value={paymentForm.referencia} onChange={handlePaymentChange} />
+                      </label>
+                      <label>
+                        Banco
+                        <input name="banco" value={paymentForm.banco} onChange={handlePaymentChange} />
+                      </label>
+                    </div>
+                    <button type="submit" className="primary-button">
+                      Registrar pago
+                    </button>
+                  </form>
+                ) : null}
               </div>
 
               <div className="billing-subsection">
                 <h4>Emitir factura</h4>
-                <form className="billing-form" onSubmit={crearFactura}>
-                  <div className="billing-row">
-                    <label>
-                      Tipo documento
-                      <select name="tipo_documento" value={invoiceForm.tipo_documento} onChange={handleInvoiceChange}>
-                        <option value="Factura">Factura</option>
-                        <option value="Boleta">Boleta</option>
-                      </select>
+                {policy.canEmitInvoice ? (
+                  <form className="billing-form" onSubmit={crearFactura}>
+                    <div className="billing-row">
+                      <label>
+                        Tipo documento
+                        <select name="tipo_documento" value={invoiceForm.tipo_documento} onChange={handleInvoiceChange}>
+                          <option value="Factura">Factura</option>
+                          <option value="Boleta">Boleta</option>
+                        </select>
+                      </label>
+                      <label>
+                        Tipo emision
+                        <select name="tipo_emision" value={invoiceForm.tipo_emision} onChange={handleInvoiceChange}>
+                          <option value="Electronica">Electronica</option>
+                          <option value="Manual">Manual</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="billing-row">
+                      <label>
+                        Nombre cliente
+                        <input name="cliente_nombre" value={invoiceForm.cliente_nombre} onChange={handleInvoiceChange} required />
+                      </label>
+                      <label>
+                        Identidad
+                        <input name="cliente_identidad" value={invoiceForm.cliente_identidad} onChange={handleInvoiceChange} />
+                      </label>
+                      <label>
+                        Correo
+                        <input name="cliente_correo" value={invoiceForm.cliente_correo} onChange={handleInvoiceChange} />
+                      </label>
+                    </div>
+                    <label className="full-width">
+                      Motivo
+                      <input name="motivo" value={invoiceForm.motivo} onChange={handleInvoiceChange} />
                     </label>
-                    <label>
-                      Tipo emision
-                      <select name="tipo_emision" value={invoiceForm.tipo_emision} onChange={handleInvoiceChange}>
-                        <option value="Electronica">Electronica</option>
-                        <option value="Manual">Manual</option>
-                      </select>
-                    </label>
-                  </div>
-                  <div className="billing-row">
-                    <label>
-                      Nombre cliente
-                      <input name="cliente_nombre" value={invoiceForm.cliente_nombre} onChange={handleInvoiceChange} required />
-                    </label>
-                    <label>
-                      Identidad
-                      <input name="cliente_identidad" value={invoiceForm.cliente_identidad} onChange={handleInvoiceChange} />
-                    </label>
-                    <label>
-                      Correo
-                      <input name="cliente_correo" value={invoiceForm.cliente_correo} onChange={handleInvoiceChange} />
-                    </label>
-                  </div>
-                  <label className="full-width">
-                    Motivo
-                    <input name="motivo" value={invoiceForm.motivo} onChange={handleInvoiceChange} />
-                  </label>
-                  <button type="submit" className="primary-button">
-                    Crear factura
-                  </button>
-                </form>
+                    <button type="submit" className="primary-button">
+                      Crear factura
+                    </button>
+                  </form>
+                ) : null}
               </div>
             </div>
           ) : (
