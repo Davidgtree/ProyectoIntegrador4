@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAppointmentAccessPolicy } from '../utils/permissions';
+import { CalendarPicker } from '../components/CalendarPicker';
 import './Citas.css';
 
 const API_URL = 'http://localhost:3000/api/citas';
@@ -46,6 +47,7 @@ export const Citas = () => {
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [verificandoPago, setVerificandoPago] = useState(false);
+  const [mostrarCalendario, setMostrarCalendario] = useState(false);
 
   const editando = useMemo(() => Boolean(form.cita_id), [form.cita_id]);
   const policy = useMemo(() => getAppointmentAccessPolicy(user?.rol_id), [user?.rol_id]);
@@ -108,6 +110,16 @@ export const Citas = () => {
     setForm(initialForm);
     setMensaje('');
     setError('');
+    setMostrarCalendario(false);
+  };
+
+  const handleCalendarSelect = ({ inicio, fin }) => {
+    setForm((actual) => ({
+      ...actual,
+      fecha_hora_inicio: inicio,
+      fecha_hora_fin: fin,
+    }));
+    setMostrarCalendario(false);
   };
 
   const handleSubmit = async (e) => {
@@ -158,12 +170,13 @@ export const Citas = () => {
 
     setMensaje('');
     setError('');
+    setMostrarCalendario(false);
     setForm({
       cita_id: cita.cita_id,
       paciente_id: String(cita.paciente_id),
       optometra_id: String(cita.optometra_id),
-      fecha_hora_inicio: toInputDateTime(cita.fecha_hora_inicio),
-      fecha_hora_fin: toInputDateTime(cita.fecha_hora_fin),
+      fecha_hora_inicio: cita.fecha_hora_inicio,
+      fecha_hora_fin: cita.fecha_hora_fin,
       motivo: cita.motivo || '',
       requiere_pago_previo: Boolean(cita.requiere_pago_previo),
     });
@@ -293,26 +306,23 @@ export const Citas = () => {
               </select>
             </label>
 
-            <label>
-              Inicio *
-              <input
-                type="datetime-local"
-                name="fecha_hora_inicio"
-                value={form.fecha_hora_inicio}
-                onChange={handleChange}
-                required
-              />
-            </label>
-
-            <label>
-              Fin *
-              <input
-                type="datetime-local"
-                name="fecha_hora_fin"
-                value={form.fecha_hora_fin}
-                onChange={handleChange}
-                required
-              />
+            <label className="appointment-grid-full">
+              Seleccionar Fecha y Turno *
+              <button
+                type="button"
+                onClick={() => setMostrarCalendario(!mostrarCalendario)}
+                className="calendar-toggle-button"
+              >
+                {form.fecha_hora_inicio
+                  ? `📅 ${formatDateTime(form.fecha_hora_inicio)}`
+                  : 'Haz clic para seleccionar fecha y hora'}
+              </button>
+              {mostrarCalendario && (
+                <CalendarPicker
+                  onDateTimeSelect={handleCalendarSelect}
+                  initialDate={form.fecha_hora_inicio}
+                />
+              )}
             </label>
 
             <label className="appointment-grid-full">

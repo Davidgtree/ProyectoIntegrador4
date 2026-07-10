@@ -615,4 +615,46 @@ async function register(req, res) {
     }
 }
 
-module.exports = { login, register, recuperarPassword, validarTokenRecuperacion, restablecerPassword, listarUsuarios, crearUsuario, cambiarEstadoUsuario, desbloquearUsuario, actualizarUsuario, verificarToken };
+async function listarAuditoria(req, res) {
+    try {
+        const rolId = Number(req.user?.rol_id);
+        
+        if (rolId !== 1) {
+            return res.status(403).json({ message: 'Solo administradores pueden ver el registro de auditoría' });
+        }
+
+        const { modulo, accion, dias = 30 } = req.query;
+        const pool = await getPool();
+        
+        let query = `SELECT TOP 1000
+                        *
+                     FROM AuditoriaLog
+                     WHERE fecha_hora >= DATEADD(day, -@dias, CAST(GETDATE() AS DATE))`;
+        
+        const request = pool.request().input('dias', sql.Int, parseInt(dias) || 30);
+        
+        if (modulo) {
+            query += ' AND modulo = @modulo';
+            request.input('modulo', sql.VarChar(80), modulo);
+        }
+        
+        if (accion) {
+            query += ' AND accion = @accion';
+            request.input('accion', sql.VarChar(80), accion);
+        }
+        
+        query += ' ORDER BY fecha_hora DESC';
+        
+        const result = await request.query(query);
+        
+        return res.json({
+            total: result.recordset.length,
+            logs: result.recordset
+        });
+    } catch (err) {
+        console.error('Error al obtener auditoría:', err.message);
+        return res.status(500).json({ message: 'Error al obtener registro de auditoría' });
+    }
+}
+
+module.exports = { login, register, recuperarPassword, validarTokenRecuperacion, restablecerPassword, listarUsuarios, crearUsuario, cambiarEstadoUsuario, desbloquearUsuario, actualizarUsuario, verificarToken, listarAuditoria };

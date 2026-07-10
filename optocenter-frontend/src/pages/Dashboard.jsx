@@ -27,7 +27,7 @@ export const DashboardHome = () => {
   const esAdmin = roleId === 1 || (puedeVerUsuarios && puedeVerReportes && puedeVerFacturacion && puedeVerInventario);
   const esOptometra = !esAdmin && (puedeVerCitas || puedeVerHistorias || puedeVerConsultas);
   const esCajero = !esAdmin && puedeVerFacturacion && !puedeVerInventario;
-  const esRecepcion = !esAdmin && puedeVerCitas && !puedeVerFacturacion && !puedeVerInventario;
+  const esRecepcion = !esAdmin && !esOptometra && puedeVerCitas && !puedeVerFacturacion && !puedeVerInventario;
 
   const [pacientes, setPacientes] = useState([]);
   const [citas, setCitas] = useState([]);

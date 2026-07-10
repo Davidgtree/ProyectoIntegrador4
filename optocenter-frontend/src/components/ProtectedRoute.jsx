@@ -12,8 +12,12 @@ export const ProtectedRoute = ({ children }) => {
 
   const requiredPermission = ROUTE_PERMISSIONS[location.pathname];
   const roleId = Number(user?.rol_id);
+  const userPermissions = Array.isArray(user?.permisos) ? user.permisos : [];
+  const hasAccess = !requiredPermission ||
+    userPermissions.includes(requiredPermission) ||
+    hasPermission(roleId, requiredPermission);
 
-  if (requiredPermission && !hasPermission(roleId, requiredPermission)) {
+  if (requiredPermission && !hasAccess) {
     return <Navigate to="/dashboard" replace />;
   }
 

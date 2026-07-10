@@ -12,7 +12,7 @@ export const AVAILABLE_PERMISSIONS = [
 ];
 
 export const DEFAULT_ROLE_PERMISSIONS = {
-  1: AVAILABLE_PERMISSIONS.filter((permission) => permission !== 'Consultas'),
+  1: AVAILABLE_PERMISSIONS,
   2: ['Pacientes', 'Citas', 'Historias', 'Consultas', 'Laboratorio'],
   3: ['Pacientes', 'Citas', 'Facturación'],
   4: ['Pacientes', 'Citas'],
@@ -30,6 +30,7 @@ export const MENU_ITEMS = [
   { label: 'Laboratorio', to: '/dashboard/laboratorio', icon: 'LB', permission: 'Laboratorio' },
   { label: 'Usuarios', to: '/dashboard/usuarios', icon: 'US', permission: 'Usuarios' },
   { label: 'Roles', to: '/dashboard/roles', icon: 'RL', permission: 'Usuarios' },
+  { label: 'Auditoría', to: '/dashboard/auditoria', icon: 'AU', permission: 'Usuarios', adminOnly: true },
   { label: 'Reportes', to: '/dashboard/reportes', icon: 'RE', permission: 'Reportes' },
   { label: 'Mi Perfil', to: '/dashboard/perfil', icon: 'MP', permission: null },
 ];
@@ -47,6 +48,7 @@ export const ROUTE_PERMISSIONS = {
   '/dashboard/laboratorio': 'Laboratorio',
   '/dashboard/usuarios': 'Usuarios',
   '/dashboard/roles': 'Usuarios',
+  '/dashboard/auditoria': 'Usuarios',
   '/dashboard/reportes': 'Reportes',
 };
 

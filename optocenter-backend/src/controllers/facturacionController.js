@@ -1,5 +1,20 @@
 const { sql, getPool } = require('../config/db');
 
+async function registrarAuditoria(pool, { empleado_id, accion, detalle, ip, registro_id }) {
+    try {
+        await pool.request()
+            .input('empleado_id', sql.Int, empleado_id || null)
+            .input('accion', sql.VarChar(80), accion)
+            .input('detalle', sql.NVarChar(sql.MAX), detalle || null)
+            .input('registro_id', sql.Int, registro_id || null)
+            .input('ip_origen', sql.VarChar(45), ip || '0.0.0.0')
+            .query(`INSERT INTO AuditoriaLog (empleado_id, modulo, accion, tabla_afectada, registro_id, detalle, ip_origen, fecha_hora)
+                    VALUES (@empleado_id, 'Facturas', @accion, 'Ventas', @registro_id, @detalle, @ip_origen, SYSUTCDATETIME())`);
+    } catch (err) {
+        console.error('No se pudo registrar auditoria de facturas:', err.message);
+    }
+}
+
 function getBillingAccessPolicy(rolId) {
     const numericRoleId = Number(rolId);
 
@@ -304,6 +319,15 @@ for (const item of items) {
 }
 
             await transaction.commit();
+            
+            await registrarAuditoria(pool, {
+                empleado_id: req.user?.empleado_id,
+                accion: 'Crear venta',
+                detalle: `Venta creada: Total $${total.toFixed(2)}, Paciente: ${paciente_id}, Items: ${items.length}`,
+                ip: req.ip,
+                registro_id: venta_id
+            });
+            
             return res.status(201).json({ message: 'Venta creada correctamente', venta_id });
         } catch (innerErr) {
             await transaction.rollback();
@@ -335,6 +359,14 @@ async function confirmarVenta(req, res) {
             return res.status(404).json({ message: 'Venta no encontrada' });
         }
 
+        await registrarAuditoria(pool, {
+            empleado_id: req.user?.empleado_id,
+            accion: 'Confirmar venta',
+            detalle: `Venta confirmada: ID ${id}`,
+            ip: req.ip,
+            registro_id: id
+        });
+
         return res.json({ message: 'Venta confirmada correctamente' });
     } catch (err) {
         console.error('Error confirmando venta:', err);
@@ -365,6 +397,14 @@ async function anularVenta(req, res) {
         if (result.rowsAffected[0] === 0) {
             return res.status(404).json({ message: 'Venta no encontrada' });
         }
+
+        await registrarAuditoria(pool, {
+            empleado_id: req.user?.empleado_id,
+            accion: 'Anular venta',
+            detalle: `Venta anulada: ID ${id}, Motivo: ${motivo || 'No especificado'}`,
+            ip: req.ip,
+            registro_id: id
+        });
 
         return res.json({ message: 'Venta anulada correctamente' });
     } catch (err) {
@@ -503,7 +543,17 @@ async function crearFactura(req, res) {
                  @subtotal, @descuento, @impuestos, @total, @motivo, @autorizado_por, @pdf_ruta,
                  SYSUTCDATETIME())`);
 
-        return res.status(201).json({ message: 'Factura creada correctamente', factura_id: facturaResult.recordset[0].factura_id });
+        const factura_id = facturaResult.recordset[0].factura_id;
+        
+        await registrarAuditoria(pool, {
+            empleado_id: req.user?.empleado_id,
+            accion: 'Crear factura',
+            detalle: `Factura creada: #${numeroFactura}, Total: $${venta.total.toFixed(2)}, Venta ID: ${venta_id}`,
+            ip: req.ip,
+            registro_id: factura_id
+        });
+
+        return res.status(201).json({ message: 'Factura creada correctamente', factura_id });
     } catch (err) {
         console.error('Error creando factura:', err);
         return res.status(500).json({ message: 'Error al crear la factura' });
@@ -566,6 +616,14 @@ async function registrarPagoVenta(req, res) {
                     (venta_id, forma_pago, monto, referencia, banco, fecha_hora)
                 VALUES
                     (@venta_id, @forma_pago, @monto, @referencia, @banco, SYSUTCDATETIME())`);
+
+        await registrarAuditoria(pool, {
+            empleado_id: req.user?.empleado_id,
+            accion: 'Registrar pago',
+            detalle: `Pago registrado: Venta ${id}, Forma: ${forma_pago}, Monto: $${Number(monto).toFixed(2)}`,
+            ip: req.ip,
+            registro_id: id
+        });
 
         return res.status(201).json({ message: 'Pago registrado correctamente' });
     } catch (err) {

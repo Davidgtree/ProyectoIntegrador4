@@ -21,6 +21,7 @@ import { Facturacion } from './pages/Facturacion';
 import { Laboratorio } from './pages/Laboratorio';
 import { Usuarios } from './pages/Usuarios';
 import Roles from './pages/Roles';
+import { Auditoria } from './pages/Auditoria';
 
 function App() {
   return (
@@ -56,6 +57,7 @@ function App() {
             <Route path="laboratorio" element={<Laboratorio />} />
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="roles" element={<Roles />} />
+            <Route path="auditoria" element={<Auditoria />} />
           </Route>
 
           {/* Redirección por defecto si la ruta no existe */}

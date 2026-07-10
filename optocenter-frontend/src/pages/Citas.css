@@ -39,7 +39,7 @@
 
 .appointments-layout {
   display: grid;
-  grid-template-columns: minmax(330px, 0.68fr) minmax(0, 1.32fr);
+  grid-template-columns: 1fr;
   gap: 26px;
   align-items: start;
 }
@@ -48,6 +48,11 @@
 .appointments-list {
   padding: 32px;
 }
+
+.appointment-form {
+  max-width: 100%;
+}
+
 
 .appointment-alert {
   margin-bottom: 16px;
@@ -229,7 +234,7 @@
 }
 
 @media (max-width: 1120px) {
-  .appointments-layout {
+  .appointment-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -240,3 +245,36 @@
     grid-template-columns: 1fr;
   }
 }
+
+.calendar-toggle-button {
+  width: 100%;
+  min-height: 44px;
+  padding: 14px 16px;
+  border: 2px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #172033;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.calendar-toggle-button:hover {
+  border-color: #0d7287;
+  background: #f0f9fb;
+}
+
+.calendar-toggle-button:focus {
+  border-color: #0d7287;
+  box-shadow: 0 0 0 3px rgba(13, 114, 135, 0.12);
+  outline: none;
+}
+
+@media (max-width: 1200px) {
+  .calendar-picker {
+    grid-template-columns: 1fr !important;
+  }
+}
+

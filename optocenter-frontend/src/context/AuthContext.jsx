@@ -8,18 +8,28 @@ const TOKEN_KEY = 'token';
 const USER_KEY = 'user';
 const API_URL = 'http://localhost:3000/api/auth';
 
+const normalizeUser = (empleado) => {
+  const roleId = Number(empleado?.rol_id);
+  const fallbackPermissions = DEFAULT_ROLE_PERMISSIONS[roleId] || [];
+  const permissions = Array.isArray(empleado?.permisos)
+    ? empleado.permisos.filter((permission) => typeof permission === 'string' && permission.trim())
+    : [];
+
+  return {
+    ...empleado,
+    permisos: permissions.length > 0 ? permissions : fallbackPermissions,
+  };
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const stored = localStorage.getItem(USER_KEY);
-    return stored ? JSON.parse(stored) : null;
+    return stored ? normalizeUser(JSON.parse(stored)) : null;
   });
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
 
   const guardarSesion = (data) => {
-    const empleado = {
-      ...data.empleado,
-      permisos: data.empleado?.permisos || DEFAULT_ROLE_PERMISSIONS[Number(data.empleado?.rol_id)] || [],
-    };
+    const empleado = normalizeUser(data.empleado);
 
     localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(USER_KEY, JSON.stringify(empleado));

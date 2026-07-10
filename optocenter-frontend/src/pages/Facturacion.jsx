@@ -119,11 +119,16 @@ export const Facturacion = () => {
   };
 
   useEffect(() => {
+    if (!policy.canViewBilling && !policy.canCreateSale) {
+      return;
+    }
     cargarPacientes();
     cargarProductos();
-    cargarVentas();
-    cargarFacturas();
-  }, []);
+    if (policy.canViewBilling) {
+      cargarVentas();
+      cargarFacturas();
+    }
+  }, [policy]);
 
   const cargarVentaDetalle = async (ventaId) => {
     if (!ventaId) return;
@@ -364,13 +369,21 @@ export const Facturacion = () => {
         </div>
       </section>
 
-      {(mensaje || error) && (
-        <div className={error ? 'appointment-alert appointment-alert-error' : 'appointment-alert'}>
-          {error || mensaje}
+      {!policy.canViewBilling && !policy.canCreateSale ? (
+        <div className="permission-denied-message">
+          <div className="permission-denied-icon">🔒</div>
+          <h3>No tienes acceso a este módulo</h3>
+          <p>Tu rol no tiene permisos para acceder a la facturación. Contacta al administrador si consideras que deberías tener acceso.</p>
         </div>
-      )}
+      ) : (
+        <>
+          {(mensaje || error) && (
+            <div className={error ? 'appointment-alert appointment-alert-error' : 'appointment-alert'}>
+              {error || mensaje}
+            </div>
+          )}
 
-      <section className="billing-grid">
+          <section className="billing-grid">
         {policy.canCreateSale ? (
           <article className="billing-card">
             <div className="form-heading">
@@ -755,6 +768,9 @@ export const Facturacion = () => {
           </div>
         </article>
       </section>
+        </>
+      )}
     </div>
   );
 };
+

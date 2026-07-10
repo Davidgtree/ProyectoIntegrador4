@@ -449,3 +449,37 @@
     transition: none;
   }
 }
+
+.permission-denied-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 32px;
+  text-align: center;
+  background: #ffffff;
+  border: 2px solid #e4edf3;
+  border-radius: 16px;
+}
+
+.permission-denied-icon {
+  font-size: 3.5rem;
+  opacity: 0.6;
+}
+
+.permission-denied-message h3 {
+  margin: 0;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #172033;
+}
+
+.permission-denied-message p {
+  margin: 0;
+  max-width: 400px;
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}

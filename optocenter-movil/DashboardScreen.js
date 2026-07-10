@@ -9,26 +9,30 @@ import {
 } from 'react-native';
 
 export const DashboardScreen = ({ user, onLogout }) => {
+  const nombre = user?.nombre || user?.correo || user?.usuario || 'Usuario';
+  const correo = user?.correo || user?.usuario || '';
+  const rol = user?.rol || (user?.rol_id === 1 ? 'admin' : user?.rol_id ? 'usuario' : '');
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.content}>
         <View style={styles.card}>
           <Text style={styles.greeting}>¡Bienvenido de vuelta!</Text>
-          <Text style={styles.userName}>{user?.nombre || user?.usuario}</Text>
+          <Text style={styles.userName}>{nombre}</Text>
           
           <View style={styles.divider} />
           
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Usuario:</Text>
-            <Text style={styles.infoValue}>{user?.usuario}</Text>
+            <Text style={styles.infoValue}>{correo}</Text>
           </View>
           
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Rol en el Sistema:</Text>
             <View style={[styles.badge, user?.rol === 'admin' ? styles.badgeAdmin : styles.badgeUser]}>
-              <Text style={[styles.badgeText, user?.rol === 'admin' ? styles.badgeTextAdmin : styles.badgeTextUser]}>
-                {user?.rol ? user.rol.toUpperCase() : 'USUARIO'}
+              <Text style={[styles.badgeText, rol === 'admin' ? styles.badgeTextAdmin : styles.badgeTextUser]}>
+                {rol ? rol.toUpperCase() : 'USUARIO'}
               </Text>
             </View>
           </View>

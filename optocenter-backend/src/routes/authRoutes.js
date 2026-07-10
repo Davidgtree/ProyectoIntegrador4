@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { login, register, recuperarPassword, validarTokenRecuperacion, restablecerPassword, listarUsuarios, crearUsuario, cambiarEstadoUsuario, desbloquearUsuario, actualizarUsuario, verificarToken } = require('../controllers/authController');
+const { login, register, recuperarPassword, validarTokenRecuperacion, restablecerPassword, listarUsuarios, crearUsuario, cambiarEstadoUsuario, desbloquearUsuario, actualizarUsuario, verificarToken, listarAuditoria } = require('../controllers/authController');
 
 router.post('/login', login);
 router.post('/register', register);
@@ -12,5 +12,6 @@ router.post('/usuarios', verificarToken, crearUsuario);
 router.put('/usuarios/:id', verificarToken, actualizarUsuario);
 router.patch('/usuarios/:id/estado', verificarToken, cambiarEstadoUsuario);
 router.patch('/usuarios/:id/desbloquear', verificarToken, desbloquearUsuario);
+router.get('/auditoria', verificarToken, listarAuditoria);
 
 module.exports = router;
